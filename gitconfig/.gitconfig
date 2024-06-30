@@ -1,3 +1,33 @@
 [user]
 	email = ikeark@gmail.com
 	name = Andreas Schmid
+
+[core]
+  pager = less -r
+
+[color]
+  diff = auto
+  status = auto
+  branch = auto
+  grep = auto
+
+[alias]
+  st = status
+  co = checkout
+  ci = commit
+  br = branch
+  l  = log --graph --pretty=format:'%C(yellow)%h%C(cyan)%d%Creset %s %C(white)- %an, %ar%Creset'
+  la = log --graph --all --pretty=format:'%C(yellow)%h%C(cyan)%d%Creset %s %C(white)- %an, %ar%Creset'
+  ll = log --stat --abbrev-commit
+
+[grep]
+  linenumber = true
+
+[http]
+    sslVerify = false
+
+[push]
+	default = current
+
+[credential]
+	helper = cache
