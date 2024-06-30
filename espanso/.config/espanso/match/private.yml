@@ -1,0 +1,8 @@
+matches:
+  - trigger: ":mycontact"
+    replace: |-
+      Andreas Schmid
+      Bünzstrasse 5
+      5624 Bünzen
+      +41 79 586 72 01
+      ikeark@gmail.com

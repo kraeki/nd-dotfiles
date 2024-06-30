@@ -1,0 +1,12 @@
+# https://manpages.debian.org/experimental/sway/sway-output.5.en.html
+# https://sr.ht/~emersion/kanshi/
+
+profile laptop-only {
+  output eDP-1 enable scale 1
+}
+
+profile docked-home {
+  output eDP-1 disable
+  output "Dell Inc. DELL U2518D 3C4YP898AHPL" enable transform 90 position 0,0
+  output "Dell Inc. DELL U2518D 3C4YP8A4AGBL" enable position 1440,560
+}

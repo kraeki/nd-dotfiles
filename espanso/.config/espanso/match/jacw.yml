@@ -1,0 +1,14 @@
+matches:
+  - trigger: ":jlinks"
+    replace: |-
+      Hinweise zum Probetraining: https://jacwohlen.ch/judo/probetraining/
+      Trainingszeiten Judo: https://jacwohlen.ch/judo/trainingszeiten/
+      Unser Dojo: http://jacwohlen.ch/kontakt/
+
+
+  - trigger: ":jtrain"
+    replace: |-
+      Montag, 18:30 -19:45 Uhr Judo Kinder 8-14 Jahre (Leitung Lukas Aggeler)
+      Donnerstag, 18:00 - 19:15 Uhr Judo Kinder 8-14 Jahre (Leitung Monika Osterwalder)
+      Freitag 17:15 - 18:15 Uhr Judo Kinder 5-8 Jahre (Leitung Ruth Genner)
+      Freitag 18:30 - 19:45 Uhr Judo Kinder 8-14 Jahre (Leitung Samuel Wey)

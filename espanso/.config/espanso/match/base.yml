@@ -1,0 +1,39 @@
+# espanso match file
+
+# For a complete introduction, visit the official docs at: https://espanso.org/docs/
+
+# You can use this file to define the base matches (aka snippets)
+# that will be available in every application when using espanso.
+
+# Matches are substitution rules: when you type the "trigger" string
+# it gets replaced by the "replace" string.
+matches:
+  # Simple text replacement
+  - trigger: ":espanso"
+    replace: "Hi there!"
+
+  # Print the current date
+  - trigger: ":date"
+    replace: "{{mydate}}"
+    vars:
+      - name: mydate
+        type: date
+        params:
+          format: "%d-%b-%Y"
+
+  - trigger: ":com"
+    replace: "{{mydate}} (AS3): "
+    vars:
+      - name: mydate
+        type: date
+        params:
+          format: "%d-%b-%Y"
+
+  - trigger: ":ue"
+    replace: "ü"
+
+  - trigger: ":oe"
+    replace: "ö"
+
+  - trigger: ":ae"
+    replace: "ä"

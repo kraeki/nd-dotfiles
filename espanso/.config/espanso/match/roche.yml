@@ -1,0 +1,10 @@
+matches:
+  - trigger: ":dep" 
+    replace: "Digital Product Enablement Domain, Informatics"
+  - trigger: ":tm"
+    replace: "[Team Meeting Summary {{date}}]"
+    vars:
+      - name: date
+        type: match
+        params:
+          trigger: ":date"
