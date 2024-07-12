@@ -5,10 +5,13 @@ zsh
 
 kitty
 hyprland
+
+
 waybar
 ly
 cliphist
 neofetch
+pamixer #volumecontrol
 
 stow
 
@@ -50,3 +53,22 @@ sudo pacman -Sy pavucontrol
 sudo pacman -Sy nwg-look 
 yay -Sy tbt # tbtadmin
 sudo pacman -Sy kanshi
+
+
+sudo pacman -Sy qt5-wayland qt6-wayland
+sudo pacman -Sy pipewire wireplumber
+yay -Sy easyeffects
+
+```
+TMP=$(mktemp -d) && \
+CFG=${XDG_CONFIG_HOME:-~/.config}/easyeffects && \
+mkdir -p "$CFG" && \
+curl -Lo $TMP/fwdsp.zip https://github.com/cab404/framework-dsp/archive/refs/heads/master.zip && \
+unzip -d $TMP $TMP/fwdsp.zip 'framework-dsp-master/config/*/*' && \
+sed -i 's|%CFG%|'$CFG'|g' $TMP/framework-dsp-master/config/*/*.json && \
+cp -rv $TMP/framework-dsp-master/config/* $CFG && \
+rm -rf $TMP
+```
+
+unzip
+sudo pacman -Sy fwupd
