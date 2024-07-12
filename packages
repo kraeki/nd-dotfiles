@@ -1,0 +1,52 @@
+git
+vim
+neovim 
+zsh
+
+kitty
+hyprland
+waybar
+ly
+cliphist
+neofetch
+
+stow
+
+systemctl enable ly.service
+systemctl start ly.service
+blueman networkmanager network-manager-applet pipewire
+jq #for gpuinfo.sh cpuinfo.sh
+git clone https://aur.archlinux.org/yay.git 
+makepkg -si
+yay -Sy google-chrome
+yay -Sy slack-desktop
+yay -Sy obsidian
+
+yay -Sy zsh-theme-powerlevel10k-git
+yay -Sy oh-my-zsh-git
+yay -Sy zsh-autosuggestions zsh-syntax-highlighting
+9* sudo ln -s /usr/share/zsh/plugins/zsh-autosuggestions /usr/share/oh-my-zsh/plugins/
+   10* sudo ln -s /usr/share/zsh/plugins/zsh-syntax-highlighting /usr/share/oh-my-zsh/plugins/
+yay -Sy espanso
+sudo pacman -Sy eza
+sudo pacman -Sy rofi
+less
+tig
+yay -Sy grimblast-git
+
+sudo pacman -Sy swappy
+
+79  sudo pacman -Sy udiskie
+   80  sudo pacman -Sy slurp
+   81  sudo pacman -Sy dunst
+sudo pacman -Sy swaylock
+yay -Sy 1password
+sudo pacman -Sy xdg-desktop-portal-hyprland
+sudo pacman -Sy bluez bluez-utils blueman
+251  systemctl enable bluetooth.service
+  252  systemctl start bluetooth.service
+sudo pacman -Sy brightnessctl
+sudo pacman -Sy pavucontrol 
+sudo pacman -Sy nwg-look 
+yay -Sy tbt # tbtadmin
+sudo pacman -Sy kanshi
