@@ -44,6 +44,7 @@ sudo pacman -Sy swappy
    81  sudo pacman -Sy dunst
 sudo pacman -Sy swaylock
 yay -Sy 1password
+yay -Sy seahorse # for 1password
 sudo pacman -Sy xdg-desktop-portal-hyprland
 sudo pacman -Sy bluez bluez-utils blueman
 251  systemctl enable bluetooth.service
@@ -72,3 +73,5 @@ rm -rf $TMP
 
 unzip
 sudo pacman -Sy fwupd
+sudo pacman -Sy xdg-desktop-portal-gtk
+
