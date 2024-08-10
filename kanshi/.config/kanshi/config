@@ -2,7 +2,7 @@
 # https://sr.ht/~emersion/kanshi/
 
 profile laptop-only {
-  output eDP-1 enable scale 1
+  output eDP-1 enable scale 1.333
 }
 
 profile docked-home {
