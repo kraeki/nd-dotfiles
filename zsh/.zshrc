@@ -64,6 +64,9 @@ function in {
     fi
 }
 
+# Disable shared history
+unsetopt share_history
+
 # Configure zsh-autosuggestions to accept with ctrl-space
 bindkey '^ ' autosuggest-accept
 
