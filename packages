@@ -75,3 +75,25 @@ unzip
 sudo pacman -Sy fwupd
 sudo pacman -Sy xdg-desktop-portal-gtk
 
+
+## Fingerprint
+sudo pacman -S fprintd libfprint
+sudo vi /etc/pam.d/sudo
+# add auth    sufficient    pam_fprintd.so
+sudo usermod -aG input kraeki
+sudo vi /etc/polkit-1/rules.d/99-fprintd.rules
+```
+polkit.addRule(function(action, subject) {
+    if (action.id == "net.reactivated.fprint.device.enroll" &&
+        subject.isInGroup("input")) {
+        return polkit.Result.YES;
+    }
+    if (action.id == "net.reactivated.fprint.device.verify" &&
+        subject.isInGroup("input")) {
+        return polkit.Result.YES;
+    }
+});
+```
+
+
+
