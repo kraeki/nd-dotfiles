@@ -4,3 +4,6 @@ gtk-titlebar = false
 
 window-padding-x = 20
 window-padding-y = 20
+
+# Disable resize info box
+resize-overlay = never
