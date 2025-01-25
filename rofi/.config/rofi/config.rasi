@@ -2,6 +2,18 @@ configuration {
     show-icons:      true;
     display-drun:    "";
     disable-history: false;
+
+    //// adding vim keybindings
+    kb-row-up: "Up,Control+k";
+    kb-row-down: "Down,Control+j";
+
+    //// fixing up
+    kb-remove-to-eol: "";
+    kb-accept-entry: "Control+z,Control+y,Return,KP_Enter";
+    //kb-move-char-back: "Control+b";
+    //kb-remove-char-back: "BackSpace";
+    //kb-move-char-forward: "Control+f";
+    //kb-mode-complete: "Control+o";
 }
 
 * {
