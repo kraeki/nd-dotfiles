@@ -4,7 +4,7 @@
 
 scrDir="$(dirname "$(realpath "$0")")"
 source "${scrDir}/globalcontrol.sh"
-roconf="${confDir}/rofi/config2.rasi"
+roconf="${confDir}/rofi/config.rasi"
 #
 #[[ "${rofiScale}" =~ ^[0-9]+$ ]] || rofiScale=10
 #
@@ -19,12 +19,12 @@ d | --drun) r_mode="drun" ;;
 w | --window) r_mode="window" ;;
 f | --filebrowser) r_mode="filebrowser" ;;
 h | --help)
-	echo -e "$(basename "${0}") [action]"
-	echo "d :  drun mode"
-	echo "w :  window mode"
-	echo "f :  filebrowser mode,"
-	exit 0
-	;;
+  echo -e "$(basename "${0}") [action]"
+  echo "d :  drun mode"
+  echo "w :  window mode"
+  echo "f :  filebrowser mode,"
+  exit 0
+  ;;
 *) r_mode="drun" ;;
 esac
 
