@@ -1,25 +1,37 @@
 #!/bin/bash
 
-# Get a list of audio output devices with descriptive names
-devices=$(pactl list sinks | awk -F': ' '/Description/ {print $2}')
+# Build sink list with index and description
+sink_info=$(pactl list sinks | awk '
+  /^Sink #/ {
+    match($0, /Sink #([0-9]+)/, m)
+    sink_index = m[1]
+  }
+  /^\s*Description:/ {
+    desc = substr($0, index($0,$2))
+    print sink_index "|" desc
+  }
+')
 
-# Show the list in rofi and capture the selected device description
-selected_device_desc=$(echo "$devices" | rofi -dmenu -i -p "Select Audio Output")
+# Show descriptions via rofi
+selected_desc=$(echo "$sink_info" | cut -d'|' -f2- | rofi -dmenu -i -p "Select Audio Output")
 
-# Find the corresponding sink name for the selected description
-selected_device=$(pactl list sinks | awk -v desc="$selected_device_desc" -F': ' '/Sink #/{sink=$2} /Description/ && $2==desc {print sink}')
+# Match description back to index
+set -x
+selected_sink=$(echo "$sink_info" | while IFS='|' read -r index desc; do
+  if [ "$desc" = "$selected_desc" ]; then
+    echo "$index"
+    break
+  fi
+done)
+set +x
 
-# Check if a device was selected
-if [ -n "$selected_device" ]; then
-  # Set the selected device as the default
-  pactl set-default-sink "$selected_device"
-
-  # Move all currently playing streams to the selected device
-  for stream in $(pactl list short sink-inputs | awk '{print $1}'); do
-    pactl move-sink-input "$stream" "$selected_device"
+# Switch output
+if [ -n "$selected_sink" ]; then
+  pactl set-default-sink "$selected_sink"
+  for input in $(pactl list short sink-inputs | awk '{print $1}'); do
+    pactl move-sink-input "$input" "$selected_sink"
   done
-
-  notify-send "Audio Output Switched" "Now using: $selected_device_desc"
+  notify-send "Audio Output Switched" "Now using: $selected_desc"
 else
   notify-send "Audio Output Switcher" "No device selected."
 fi
