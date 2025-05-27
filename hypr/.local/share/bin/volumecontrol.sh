@@ -24,58 +24,67 @@ exit 1
 
 notify_vol ()
 {
-    angle="$(( (($vol+2)/5) * 5 ))"
-    ico="${icodir}/vol-${angle}.svg"
-    bar=$(seq -s "." $(($vol / 15)) | sed 's/[0-9]//g')
-    notify-send  -a "t2" -r 91190 -t 800 -i "${ico}" "${vol}${bar}" "${nsink}"
+    vol_raw=$(wpctl get-volume @DEFAULT_AUDIO_SINK@ | awk '{print $2}')
+    vol_percent=$(echo "$vol_raw * 100" | bc -l | awk '{printf "%.0f", $1}')
+    vol_rounded_to_5=$(( (vol_percent + 2) / 5 * 5 ))
+    ico="${icodir}/vol-${vol_rounded_to_5}.svg"
+    notify-send  -a "t2" -r 91190 -t 800 -i "${ico}" "${vol_percent}" "${nsink}"
 }
 
-notify_mute ()
-{
-    mute=$(pamixer "${srce}" --get-mute | cat)
-    [ "${srce}" == "--default-source" ] && dvce="mic" || dvce="speaker"
-    if [ "${mute}" == "true" ] ; then
+notify_mute () {
+    if [ "$srce" == "input" ]; then
+        device="@DEFAULT_AUDIO_SOURCE@"
+        dvce="mic"
+    else
+        device="@DEFAULT_AUDIO_SINK@"
+        dvce="speaker"
+    fi
+
+    if wpctl get-volume "$device" | grep -q MUTED; then
         notify-send -a "t2" -r 91190 -t 800 -i "${icodir}/muted-${dvce}.svg" "muted" "${nsink}"
     else
         notify-send -a "t2" -r 91190 -t 800 -i "${icodir}/unmuted-${dvce}.svg" "unmuted" "${nsink}"
     fi
 }
 
-action_pamixer ()
-{
-    pamixer "${srce}" -"${1}" "${step}"
-    vol=$(pamixer "${srce}" --get-volume | cat)
-}
-
-action_playerctl ()
-{
-    [ "${1}" == "i" ] && pvl="+" || pvl="-"
-    playerctl --player="${srce}" volume 0.0"${step}""${pvl}"
-    vol=$(playerctl --player="${srce}" volume | awk '{ printf "%.0f\n", $0 * 100 }')
-}
-
-
-# eval device option
-
-while getopts iop: DeviceOpt
-do
-    case "${DeviceOpt}" in
-    i) nsink=$(pamixer --list-sources | awk -F '"' 'END {print $(NF - 1)}')
-        [ -z "${nsink}" ] && echo "ERROR: Input device not found..." && exit 0
-        ctrl="pamixer"
-        srce="--default-source" ;;
-    o) nsink=$(pamixer --get-default-sink | awk -F '"' 'END{print $(NF - 1)}')
-        [ -z "${nsink}" ] && echo "ERROR: Output device not found..." && exit 0
-        ctrl="pamixer"
-        srce="" ;;
-    p) nsink=$(playerctl --list-all | grep -w "${OPTARG}")
-        [ -z "${nsink}" ] && echo "ERROR: Player ${OPTARG} not active..." && exit 0
+# Parse device options: -i for input, -o for output, -p for player
+while getopts "iop:" opt; do
+  case "$opt" in
+    i)  # Input (microphone)
+	nsink_id=$(pw-dump | jq -r '.[] | select(.type=="PipeWire:Interface:Metadata") | .metadata[]? | select(.key | contains("default.audio.source")) | .value.name')
+	nsink=$(pw-dump | jq --arg sink "$nsink_id" '.[] | select(.info.props."node.name"==$sink) | .info.props."node.description"')
+        if [[ -z "$nsink" ]]; then
+          echo "ERROR: Input device not found..."
+          exit 1
+        fi
+        ctrl="wpctl"
+        srce="input"
+        ;;
+    o)  # Output (speakers/headphones)
+	nsink_id=$(pw-dump | jq -r '.[] | select(.type=="PipeWire:Interface:Metadata") | .metadata[]? | select(.key | contains("default.audio.sink")) | .value.name')
+	nsink=$(pw-dump | jq --arg sink "$nsink_id" '.[] | select(.info.props."node.name"==$sink) | .info.props."node.description"')
+        if [[ -z "$nsink" ]]; then
+          echo "ERROR: Output device not found..."
+          exit 1
+        fi
+        ctrl="wpctl"
+        srce="output"
+        ;;
+    p)  # Player (media app)
+        nsink=$(playerctl -l | grep -w "$OPTARG")
+        if [[ -z "$nsink" ]]; then
+          echo "ERROR: Player '$OPTARG' not active..."
+          exit 1
+        fi
         ctrl="playerctl"
-        srce="${nsink}" ;;
-    *) print_error ;;
-    esac
+        srce="player"
+        ;;
+    *)
+        echo "Usage: $0 [-i] [-o] [-p playername]"
+        exit 1
+        ;;
+  esac
 done
-
 
 # set default variables
 
@@ -87,9 +96,9 @@ step="${2:-5}"
 # execute action
 
 case "${1}" in
-    i) action_${ctrl} i ;;
-    d) action_${ctrl} d ;;
-    m) "${ctrl}" "${srce}" -t && notify_mute && exit 0 ;;
+    i) wpctl set-volume @DEFAULT_AUDIO_SINK@ 5%+ ;;
+    d) wpctl set-volume @DEFAULT_AUDIO_SINK@ 5%- ;;
+    m) wpctl set-mute @DEFAULT_AUDIO_SINK@ toggle && notify_mute && exit 0 ;;
     *) print_error ;;
 esac
 
