@@ -1,4 +1,4 @@
-#!/bin/bash
+#!/usr/bin/env bash
 
 # Check if wl-clipboard is installed
 if ! command -v wl-copy &>/dev/null || ! command -v wl-paste &>/dev/null; then

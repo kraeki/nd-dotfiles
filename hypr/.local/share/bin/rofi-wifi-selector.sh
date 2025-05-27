@@ -1,4 +1,4 @@
-#!/bin/bash
+#!/usr/bin/env bash
 
 # Get a list of available Wi-Fi networks with details
 wifi_list=$(nmcli -t -f SSID,SIGNAL,FREQ,BARS,SECURITY dev wifi | sort -t: -k2 -nr)

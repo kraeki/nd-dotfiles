@@ -1,4 +1,5 @@
-#!/bin/bash
+#!/usr/bin/env bash
+
 
 # Get a list of paired Bluetooth devices using bluetoothctl
 device_list=$(bluetoothctl devices | awk '{print $2 " " substr($0, index($0,$3))}')
