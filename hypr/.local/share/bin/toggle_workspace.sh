@@ -1,4 +1,4 @@
-#!/bin/bash
+#!/usr/bin/env bash
 
 # Get the current workspace
 current_workspace=$(hyprctl activeworkspace -j | jq '.id')

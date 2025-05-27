@@ -1,4 +1,4 @@
-#!/bin/bash
+#!/usr/bin/env bash
 
 # Build sink list with index and description
 sink_info=$(pactl list sinks | awk '
