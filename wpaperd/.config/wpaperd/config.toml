@@ -1,0 +1,4 @@
+[default]
+path = "~/.config/hypr/wallpapers"
+mode = "stretch"
+duration = "45m"
