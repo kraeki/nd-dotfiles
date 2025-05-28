@@ -1,7 +1,6 @@
 #!/usr/bin/env sh
 
 scrDir=`dirname "$(realpath "$0")"`
-source $scrDir/globalcontrol.sh
 
 function print_error
 {
