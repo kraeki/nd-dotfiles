@@ -125,11 +125,8 @@
     slack
 
     # My Launcher
-    fuzzel
     wl-clipboard
     cliphist        
-    sqlite
-    wox
 
     claude-code
   ];
