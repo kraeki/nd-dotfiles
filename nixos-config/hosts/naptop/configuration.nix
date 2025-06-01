@@ -134,6 +134,8 @@
     claude-code
   ];
 
+  programs.nano.enable = false;
+
   ## Steam 
   programs.steam = {
     enable = true;
