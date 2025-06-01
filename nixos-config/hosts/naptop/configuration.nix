@@ -135,6 +135,7 @@
   ];
 
   programs.nano.enable = false;
+  services.hardware.bolt.enable = true;
 
   ## Steam 
   programs.steam = {
