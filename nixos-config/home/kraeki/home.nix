@@ -10,6 +10,12 @@
   programs.zsh = {
     enable = true;
 
+    shellAliases = {
+      vi = "nvim";
+      hc = "vi ~/.config/hypr";
+      nc = "cd ~/work/nd-dotfiles/nixos-config; vi ./hosts/naptop/configuration.nix";
+    };
+
     oh-my-zsh = {
       enable = true;
       plugins = [ "git" "per-directory-history" ]; 
