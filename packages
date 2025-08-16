@@ -18,7 +18,7 @@ stow
 systemctl enable ly.service
 systemctl start ly.service
 blueman networkmanager network-manager-applet pipewire
-jq #for gpuinfo.sh cpuinfo.sh
+jq #for cpuinfo.sh
 git clone https://aur.archlinux.org/yay.git 
 makepkg -si
 yay -Sy google-chrome
