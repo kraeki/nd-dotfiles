@@ -76,8 +76,10 @@
   # List packages installed in system profile. To search, run:
   # $ nix search wget
   environment.systemPackages = with pkgs; [
+    htop
     vim
     fd
+    usbutils
     # neovim 
     neovim
     fzf
@@ -98,6 +100,7 @@
     hyprlock
     kitty
     waybar
+    lm_sensors # used by cpuinfo / waybar
     zsh
     zsh-powerlevel10k
     oh-my-zsh
@@ -133,10 +136,20 @@
     cliphist        
 
     claude-code
+
+    unzip
+
+    mplayer
+    teamviewer
+    claude-code
+
+    nodejs_22 # to have npm / e.g nvim/mason requires it
   ];
 
   programs.nano.enable = false;
   services.hardware.bolt.enable = true;
+
+  services.teamviewer.enable = true;
 
   ## Steam 
   programs.steam = {
@@ -148,7 +161,7 @@
   hardware.graphics.enable32Bit = true; # Required for 32-bit games
   hardware.steam-hardware.enable = true;  # Enables udev rules for game controllers
   ## - Steam
-  
+
   programs.hyprland.enable = true; 
   programs.zsh.enable = true; 
 
