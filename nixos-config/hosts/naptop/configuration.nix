@@ -150,6 +150,8 @@
   services.hardware.bolt.enable = true;
 
   services.teamviewer.enable = true;
+  services.power-profiles-daemon.enable = true;
+
 
   ## Steam 
   programs.steam = {
