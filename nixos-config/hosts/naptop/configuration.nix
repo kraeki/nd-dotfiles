@@ -17,6 +17,7 @@
 
   # Use latest kernel.
   boot.kernelPackages = pkgs.linuxPackages_latest;
+  #boot.kernelPackages = pkgs.linuxPackages_6_15;
 
   boot.kernelModules = [ "hid_apple" ];
   boot.extraModprobeConfig = ''
@@ -115,6 +116,7 @@
     grim
     slurp
     stow
+    vicinae # - launcher
 
     obsidian
     _1password-gui
