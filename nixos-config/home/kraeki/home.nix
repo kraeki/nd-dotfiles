@@ -41,8 +41,6 @@
   };
 
   home.packages = with pkgs; [ 
-    ulauncher
-    (import ./ulauncher-wrapper.nix { inherit pkgs; })
   ];
 }
 
