@@ -74,11 +74,6 @@
     users.kraeki = import ../../home/kraeki/home.nix;
   };
 
-  # FIMXE: Due to Ulauncher 
-  nixpkgs.config.permittedInsecurePackages = [
-    "libsoup-2.74.3"
-  ];
-
   # List packages installed in system profile.
   environment.systemPackages = with pkgs; [
     # System tools
