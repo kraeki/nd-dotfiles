@@ -16,18 +16,20 @@
         config.allowUnfree = true;
       };
     in {
-      nixosConfigurations."naptop" = nixpkgs.lib.nixosSystem {
-        inherit system;
-        modules = [
-          ./hosts/naptop/configuration.nix
-          ./theme.nix
-          home-manager.nixosModules.home-manager
-          {
-            home-manager.useGlobalPkgs = true;
-            home-manager.useUserPackages = true;
-            home-manager.users.kraeki = import ./home/kraeki/home.nix;
-          }
-        ];
+      nixosConfigurations = {
+        "naptop" = nixpkgs.lib.nixosSystem {
+          inherit system;
+          modules = [
+            ./hosts/naptop/configuration.nix
+            ./theme.nix
+            home-manager.nixosModules.home-manager
+            {
+              home-manager.useGlobalPkgs = true;
+              home-manager.useUserPackages = true;
+              home-manager.users.kraeki = import ./home/kraeki/home.nix;
+            }
+          ];
+        };
       };
     };
 }
