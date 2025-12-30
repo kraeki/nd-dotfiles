@@ -86,6 +86,7 @@
     fzf
     clang
     ripgrep
+    tree-sitter
     # -- neovim 
     git
     tig
@@ -116,9 +117,11 @@
     grim
     slurp
     stow
+    poppler-utils #pdfunite
     vicinae # - launcher
 
     obsidian
+    seahorse
     _1password-gui
     wget
     curl
@@ -138,14 +141,20 @@
     cliphist        
 
     claude-code
+    gemini-cli
 
     unzip
+    networkmanagerapplet  
 
     mplayer
     teamviewer
     claude-code
 
     nodejs_22 # to have npm / e.g nvim/mason requires it
+    tcpdump
+
+    file
+    whois
   ];
 
   programs.nano.enable = false;
@@ -154,6 +163,10 @@
   services.teamviewer.enable = true;
   services.power-profiles-daemon.enable = true;
 
+
+
+  ## 1password needs keyring 
+  services.gnome.gnome-keyring.enable = true;
 
   ## Steam 
   programs.steam = {
@@ -195,5 +208,8 @@
   # (e.g. man configuration.nix or on https://nixos.org/nixos/options.html).
   system.stateVersion = "25.05"; # Did you read the comment?
 
-  nix.settings.experimental-features = [ "nix-command" "flakes" ];
+  nix.settings = {
+    experimental-features = [ "nix-command" "flakes" ];
+    secret-key-files = ["/etc/nix/signing-key.sec"];
+  };
 }
