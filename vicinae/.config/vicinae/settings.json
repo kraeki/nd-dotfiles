@@ -8,4 +8,14 @@
 //
 // Learn more about configuration at https://docs.vicinae.com/config
 
-{}
+{
+   "providers": {
+      "@knoopx/store.vicinae.nix": {
+         "entrypoints": {
+            "packages": {
+               "alias": "ns"
+            }
+         }
+      }
+   }
+}
