@@ -2,12 +2,13 @@
 # your system.  Help is available in the configuration.nix(5) man page
 # and in the NixOS manual (accessible by running ‘nixos-help’).
 
-{ config, pkgs, ... }:
+{ config, pkgs, home-manager, ... }:
 
 {
   imports =
     [ # Include the results of the hardware scan.
       ./hardware-configuration.nix
+      home-manager.nixosModules.home-manager
     ];
 
 
@@ -67,96 +68,85 @@
     packages = with pkgs; [];
   };
 
-  # Allow unfree packages
-  nixpkgs.config.allowUnfree = true;
+  home-manager = {
+    useGlobalPkgs = true;
+    useUserPackages = true;
+    users.kraeki = import ../../home/kraeki/home.nix;
+  };
+
   # FIMXE: Due to Ulauncher 
   nixpkgs.config.permittedInsecurePackages = [
     "libsoup-2.74.3"
   ];
 
-  # List packages installed in system profile. To search, run:
-  # $ nix search wget
+  # List packages installed in system profile.
   environment.systemPackages = with pkgs; [
+    # System tools
     htop
     vim
     fd
     usbutils
-    # neovim 
+    git
+    tig
+    gnumake
+    bc
+    upower
+    libnotify
+    jq
+    lm_sensors
+    stow
+    wget
+    curl
+    docker
+    unzip
+    file
+    whois
+    tcpdump
+    dnsmasq
+    nodejs_22
+
+    # Desktop environment
+    hyprland
+    dunst
+    wpaperd
+    hyprlock
+    kitty
+    waybar
+    rofi
+    kanshi
+    nautilus
+    networkmanagerapplet
+
+    # Hardware & Power
+    brightnessctl
+    pulseaudio
+    bluez
+    thunderbolt
+    powertop
+
+    # Shell
+    zsh
+    zsh-powerlevel10k
+    oh-my-zsh
+    neofetch
+
+    # Clipboard & Screenshot
+    wl-clipboard
+    cliphist
+    swappy
+    grim
+    slurp
+
+    # Utilities
+    poppler-utils # for pdfunite
+    vicinae      # launcher
+
+    # Neovim & dependencies
     neovim
     fzf
     clang
     ripgrep
     tree-sitter
-    # -- neovim 
-    git
-    tig
-    gnumake
-    hyprland
-    dunst
-    bc
-    brightnessctl
-    upower
-    libnotify
-    jq # used by hyprland scripts
-    wpaperd # wallpaper daemon
-    hyprlock
-    kitty
-    waybar
-    lm_sensors # used by cpuinfo / waybar
-    zsh
-    zsh-powerlevel10k
-    oh-my-zsh
-    rofi
-    pulseaudio
-    bluez
-    kanshi
-    thunderbolt # enabling docking station (tbtadm)
-    neofetch
-    nautilus
-    swappy
-    grim
-    slurp
-    stow
-    poppler-utils #pdfunite
-    vicinae # - launcher
-    # power management
-    powertop
-
-    obsidian
-    seahorse
-    _1password-gui
-    wget
-    curl
-    docker
-    audacity
-    inkscape
-    gimp
-    google-chrome
-
-    steam
-    protontricks
-
-    slack
-
-    # My Launcher
-    wl-clipboard
-    cliphist        
-
-    claude-code
-    gemini-cli
-
-    unzip
-    networkmanagerapplet  
-
-    mplayer
-    teamviewer
-    claude-code
-
-    nodejs_22 # to have npm / e.g nvim/mason requires it
-    tcpdump
-
-    file
-    whois
   ];
 
   programs.nano.enable = false;
@@ -164,6 +154,9 @@
 
   services.teamviewer.enable = true;
 
+  ## Power Management
+  services.power-profiles-daemon.enable = false;
+  powerManagement.powertop.enable = true;
   services.tlp = {
     enable = true;
     settings = {

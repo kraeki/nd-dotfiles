@@ -11,23 +11,15 @@
   outputs = { self, nixpkgs, home-manager, ... } @ inputs:
     let
       system = "x86_64-linux";
-      pkgs = import nixpkgs {
-        inherit system;
-        config.allowUnfree = true;
-      };
     in {
       nixosConfigurations = {
         "naptop" = nixpkgs.lib.nixosSystem {
           inherit system;
+          specialArgs = { inherit home-manager; };
           modules = [
             ./hosts/naptop/configuration.nix
             ./theme.nix
-            home-manager.nixosModules.home-manager
-            {
-              home-manager.useGlobalPkgs = true;
-              home-manager.useUserPackages = true;
-              home-manager.users.kraeki = import ./home/kraeki/home.nix;
-            }
+            { nixpkgs.config.allowUnfree = true; }
           ];
         };
       };

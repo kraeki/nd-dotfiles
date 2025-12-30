@@ -40,7 +40,29 @@
     '';
   };
 
-  home.packages = with pkgs; [ 
+  home.packages = with pkgs; [
+    # Productivity & Communication
+    obsidian
+    _1password-gui
+    seahorse
+    slack
+    claude-code
+    gemini-cli
+    google-chrome
+
+    # Creative
+    audacity
+    inkscape
+    gimp
+    davinci-resolve-studio
+
+    # Entertainment
+    steam
+    protontricks
+    mplayer
+
+    # Misc
+    teamviewer
   ];
 }
 
