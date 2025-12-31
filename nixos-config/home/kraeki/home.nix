@@ -37,6 +37,9 @@
       # Powerlevel10k initialisieren
       source ${pkgs.zsh-powerlevel10k}/share/zsh-powerlevel10k/powerlevel10k.zsh-theme
       [[ -f ~/.p10k.zsh ]] && source ~/.p10k.zsh
+
+      # z-lua initialization
+      eval "$(${pkgs.z-lua}/bin/z --init zsh enhanced once)"
     '';
   };
 
@@ -60,6 +63,9 @@
     steam
     protontricks
     mplayer
+
+    # Shell utilities
+    z-lua
 
     # Misc
     teamviewer
