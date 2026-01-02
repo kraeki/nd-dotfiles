@@ -1,0 +1,45 @@
+# Catppuccin Mocha for tig
+
+# Diff colors
+color diff-header       color3 default bold
+color diff-index        color4 default
+color diff-chunk        color5 default bold
+color diff-add          color2 default
+color diff-del          color1 default
+
+# Main view
+color author            color6 default
+color date              color4 default
+color id                color3 default
+color graph-commit      color1 default
+color status            color2 default
+color delimiter         color6 default
+
+# Tree view
+color tree.directory    color4 default bold
+
+# Refs
+color "Refs: "          color2 default
+
+# Cursor and titles
+color cursor            color0 color5 bold
+color title-focus       color7 color8 bold
+color title-blur        color7 color8
+
+# Help view
+color help-group        color4 default bold
+color help-action       color3 default
+
+# Grep view
+color grep.file         color4 default
+color grep.line-number  color3 default
+
+# Palette mapping (for reference):
+# color0/8 = black/gray
+# color1/9 = red (Catppuccin: #F38BA8)
+# color2/10 = green (Catppuccin: #A6E3A1)
+# color3/11 = yellow (Catppuccin: #F9E2AF)
+# color4/12 = blue (Catppuccin: #87B0F9)
+# color5/13 = magenta (Catppuccin: #F5C2E7)
+# color6/14 = cyan (Catppuccin: #94E2D5)
+# color7/15 = white (Catppuccin: #CDD6F4)
