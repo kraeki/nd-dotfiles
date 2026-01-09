@@ -91,6 +91,8 @@
     users.kraeki = import ../../home/kraeki/home.nix;
   };
 
+  # Wayland for Chromium-family apps (Chrome/Electron) on NixOS
+  environment.sessionVariables.NIXOS_OZONE_WL = "1";  # :contentReference[oaicite:2]{index=2}
   # List packages installed in system profile.
   environment.systemPackages = with pkgs; [
     # System tools
