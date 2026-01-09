@@ -64,6 +64,14 @@
     protontricks
     mplayer
 
+    # Development tools
+    lazygit          # TUI for git (LazyVim integration)
+    python3          # Python runtime for LSPs and tools
+    glib             # Provides gio trash command
+    ast-grep         # Structural search/replace
+    ghostscript      # PDF rendering in neovim
+    chafa            # Image preview in terminal/fzf
+
     # Shell utilities
     z-lua
 
