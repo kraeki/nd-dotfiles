@@ -93,15 +93,8 @@
 
   # Wayland for Chromium-family apps (Chrome/Electron) on NixOS
   environment.sessionVariables.NIXOS_OZONE_WL = "1";  # :contentReference[oaicite:2]{index=2}
-
   # List packages installed in system profile.
   environment.systemPackages = with pkgs; [
-    mesa
-    vulkan-loader
-    vulkan-tools
-    libva
-    libva-utils
-    
     # System tools
     lsof
     htop
