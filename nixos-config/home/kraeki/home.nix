@@ -51,7 +51,6 @@
     slack
     claude-code
     gemini-cli
-    google-chrome
 
     # Creative
     audacity
@@ -78,5 +77,16 @@
     # Misc
     teamviewer
   ];
-}
 
+  programs.google-chrome = {
+    enable = true;
+    commandLineArgs = [
+      "--ozone-platform=wayland"
+      "--use-gl=egl"
+      "--enable-gpu-rasterization"
+      "--enable-zero-copy"
+      "--enable-native-gpu-memory-buffers"
+      "--enable-features=WaylandWindowDecorations,VaapiVideoDecoder,CanvasOopRasterization"
+    ];
+  };
+}
