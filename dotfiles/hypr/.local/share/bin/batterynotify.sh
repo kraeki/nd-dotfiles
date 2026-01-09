@@ -46,7 +46,7 @@ fn_notify() { # Send notification
 fn_percentage() {
   if [[ "$battery_percentage" -ge "$unplug_charger_threshold" ]] && [[ "$battery_status" != "Discharging" ]] && [[ "$battery_status" != "Full" ]] && (((battery_percentage - last_notified_percentage) >= $interval)); then
     if $verbose; then echo "Prompt:UNPLUG: $battery_unplug_threshold $battery_status $battery_percentage"; fi
-    fn_notify "-t 5000 " "CRITICAL" "Battery Charged" "Battery is at $battery_percentage%. You can unplug the charger!"
+    fn_notify "-t 5000 " "LOW" "Battery Charged" "Battery is at $battery_percentage%. You can unplug the charger!"
     last_notified_percentage=$battery_percentage
   elif [[ "$battery_percentage" -le "$battery_critical_threshold" ]]; then
     count=$((timer > $mnt ? timer : $mnt)) # reset count
@@ -101,7 +101,7 @@ fn_status() {
     if [[ $battery_status != "Discharging" ]]; then
       now=$(date +%s)
       if [[ "$prev_status" == *"harging"* ]] || ((now - lt >= $((notify * 60)))); then
-        fn_notify "-t 5000 -r 54321" "CRITICAL" "Battery Full" "Please unplug your Charger"
+        fn_notify "-t 5000 -r 54321" "LOW" "Battery Full" "Please unplug your Charger"
         prev_status=$battery_status lt=$now
         $execute_charging
       fi
