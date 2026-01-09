@@ -20,7 +20,14 @@
   boot.kernelPackages = pkgs.linuxPackages_latest;
   #boot.kernelPackages = pkgs.linuxPackages_6_15;
 
-  boot.kernelModules = [ "hid_apple" ];
+  # AMD pstate driver for optimal power management on Ryzen 7040
+  # active mode enables EPP (Energy Performance Preference) for PPD control
+  boot.kernelParams = [
+    "amd_pstate=active"
+    "amdgpu.dcdebugmask=0x10"  # Fix video freezes on Framework AMD
+  ];
+
+  boot.kernelModules = [ "hid_apple" "wireguard" ];
   boot.extraModprobeConfig = ''
     options hid_apple swap_fn_leftctrl=1 swap_opt_cmd=1 fnmode=2
   '';
@@ -34,6 +41,16 @@
   # Enable bluethooth
   hardware.bluetooth.enable = true;
   hardware.bluetooth.powerOnBoot = true;
+
+  # AMD CPU microcode updates for stability and security
+  hardware.cpu.amd.updateMicrocode = true;
+
+  # Kernel power management parameters (ArchWiki recommendations)
+  boot.kernel.sysctl = {
+    "kernel.nmi_watchdog" = 0;           # Disable NMI watchdog to reduce power consumption
+    "vm.dirty_writeback_centisecs" = 6000;  # Aggregate disk I/O (60s vs default 5s)
+    "vm.laptop_mode" = 5;                # Batch I/O operations for better power efficiency
+  };
 
   # Set your time zone.
   time.timeZone = "Europe/Berlin";
@@ -77,6 +94,7 @@
   # List packages installed in system profile.
   environment.systemPackages = with pkgs; [
     # System tools
+    lsof
     htop
     vim
     fd
@@ -99,6 +117,8 @@
     tcpdump
     dnsmasq
     nodejs_22
+    tor
+    wireguard-tools
 
     # Desktop environment
     hyprland
@@ -111,6 +131,7 @@
     kanshi
     nautilus
     networkmanagerapplet
+    hyprpicker
 
     # Hardware & Power
     brightnessctl
@@ -144,49 +165,22 @@
     tree-sitter
   ];
 
-  programs.nano.enable = false;
+  # programs.nano.enable = false;
   services.hardware.bolt.enable = true;
 
   services.teamviewer.enable = true;
 
   ## Power Management
-  services.power-profiles-daemon.enable = false;
+  # Use power-profiles-daemon as recommended by AMD and Framework for Ryzen 7040
+  services.power-profiles-daemon.enable = true;
   powerManagement.powertop.enable = true;
-  services.tlp = {
-    enable = true;
-    settings = {
-      # USB-Autosuspend
-      USB_AUTOSUSPEND = "1";                # USB-Geräte im Leerlauf automatisch aussetzen
-      # PCIe Active-State Power Management (ASPM)
-      PCIE_ASPM_ON_AC = "default";          # ASPM gemäß Systemeinstellung auf Netzstrom
-      PCIE_ASPM_ON_BAT = "powersupersave";  # Maximales ASPM auf Akku für minimale Link-Leistungsaufnahme
-      # SATA Link Power Management (ALPM)
-      SATA_LINKPWR_ON_AC = "med_power_with_dipm";  # Moderate Stromsparstufe auf Netzstrom (Standard)
-      SATA_LINKPWR_ON_BAT = "min_power";          # Aggressivste Stromsparstufe auf Akku (max. Energiesparen)
-      # CPU: Governor und Boost
-      CPU_SCALING_GOVERNOR_ON_BAT = "powersave";   # Energiesparender CPU-Governor auf Akku
-      CPU_BOOST_ON_BAT = "0";                     # CPU-Turbo/Boost auf Akku deaktivieren (0 = aus) 
-      CPU_BOOST_ON_AC = "1";                      # (zum Vergleich: Boost auf Netzstrom erlauben)
-      CPU_ENERGY_PERF_POLICY_ON_BAT = "power";    # (Falls unterstützt) EPP auf maximale Energieeffizienz setzen
-      # WLAN, Bluetooth und Netzwerk
-      WIFI_PWR_ON_BAT = "on";                     # WLAN-Stromsparmodus auf Akku aktivieren
-      WOL_DISABLE = "Y";                          # Wake-on-LAN deaktivieren (Y) 
-      DEVICES_TO_DISABLE_ON_BAT_NOT_IN_USE = "bluetooth wifi wwan";  # Funkgeräte bei Nichtbenutzung auf Akku ausschalten
-      # Audio-Powermanagement
-      SOUND_POWER_SAVE_ON_AC = "1";               # Audio-Powerdown nach 1s Inaktivität (Netzstrom)
-      SOUND_POWER_SAVE_ON_BAT = "1";              # Audio-Powerdown nach 1s Inaktivität (Akku)
-      SOUND_POWER_SAVE_CONTROLLER = "Y";          # Audio-Controller mit ausschalten
-      # Optionale Ladegrenzwerte (wenn vom Gerät unterstützt)
-      START_CHARGE_THRESH_BAT0 = "75";            # Untere Ladeschwelle 75%
-      STOP_CHARGE_THRESH_BAT0 = "80";             # Obere Ladeschwelle 80%
-      # (Optional) Plattform-Profil
-      PLATFORM_PROFILE_ON_AC = "balanced";        # Ausgewogenes Profil am Netz
-      PLATFORM_PROFILE_ON_BAT = "low-power";      # Energiespar-Profil auf Akku
-      # Grafik/Display
-      RADEON_DPM_PERF_LEVEL_ON_AC = "auto";       # GPU Performance-Level automatisch (Netz)
-      RADEON_DPM_PERF_LEVEL_ON_BAT = "low";       # GPU in niedrigsten Performance-State auf Akku
-    };
-  };
+
+  # TLP conflicts with power-profiles-daemon and is not recommended for AMD Ryzen 7040
+  services.tlp.enable = false;
+
+  # Battery charge thresholds (Framework specific)
+  # Note: These need framework-tool or manual sysfs writes to persist
+  # Consider using systemd-tmpfiles or udev rules for this
 
 
   ## 1password needs keyring 
