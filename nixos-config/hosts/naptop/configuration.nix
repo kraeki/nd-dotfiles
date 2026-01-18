@@ -214,6 +214,20 @@
 
   # Enable the OpenSSH daemon.
   # services.openssh.enable = true;
+  services.tailscale.enable = true;
+  networking.firewall.checkReversePath = "loose";
+  networking.firewall.trustedInterfaces = [ "tailscale0" ];
+
+  services.openssh = {
+    enable = true;
+    settings = {
+      PasswordAuthentication = false; # Require SSH keys
+      KbdInteractiveAuthentication = false;
+      PermitRootLogin = "no"; # Security best practice
+    };
+    # Only open SSH to your Tailscale network for maximum security
+    openFirewall = false; 
+  };
 
   services.blueman.enable = true;
   services.upower.enable = true;
