@@ -40,9 +40,6 @@
 
       # z-lua initialization
       eval "$(${pkgs.z-lua}/bin/z --init zsh enhanced once)"
-
-      # npm global packages
-      export PATH="$HOME/.npm-global/bin:$PATH"
     '';
   };
 
@@ -92,5 +89,4 @@
       "--enable-features=WaylandWindowDecorations,VaapiVideoDecoder,CanvasOopRasterization"
     ];
   };
-
 }
