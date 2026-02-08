@@ -121,6 +121,8 @@
     nodejs_22
     tor
     wireguard-tools
+    tmux
+    glow
 
     # Desktop environment
     hyprland
@@ -246,4 +248,5 @@
     experimental-features = [ "nix-command" "flakes" ];
     secret-key-files = ["/etc/nix/signing-key.sec"];
   };
+
 }
