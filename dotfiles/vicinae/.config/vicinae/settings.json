@@ -16,6 +16,12 @@
                "alias": "ns"
             }
          }
+      },
+      "@kraeki/google-calendar": {
+         "preferences": {
+            "browserCommand": "google-chrome-stable --new-window",
+            "clientId": "1086849251922-3dte4kacqm1lv4brpbdoud7spi9psbto.apps.googleusercontent.com"
+         }
       }
    }
 }

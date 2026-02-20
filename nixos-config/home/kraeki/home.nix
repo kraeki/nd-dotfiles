@@ -53,6 +53,7 @@
     seahorse
     slack
     claude-code
+    codex
     gemini-cli
 
     # Creative
