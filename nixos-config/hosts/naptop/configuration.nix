@@ -104,6 +104,7 @@
     git
     tig
     gnumake
+    cmake
     bc
     upower
     libnotify
