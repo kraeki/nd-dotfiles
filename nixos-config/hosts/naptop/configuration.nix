@@ -37,6 +37,20 @@
 
   # Enable networking
   networking.networkmanager.enable = true;
+  networking.networkmanager.dns = "systemd-resolved";
+  networking.networkmanager.settings.connectivity = {
+    uri = "http://nmcheck.gnome.org/check_network_status.txt";
+    interval = 300;
+  };
+
+  # DNS resolution - systemd-resolved handles split DNS properly:
+  # WiFi DNS for general queries, Tailscale MagicDNS for .ts.net only.
+  # Fixes: DNS failure after sleep (no more sole dependency on Tailscale DNS)
+  # Fixes: Captive portal detection (WiFi DNS is reachable for connectivity checks)
+  services.resolved = {
+    enable = true;
+    fallbackDns = [ "1.1.1.1" "8.8.8.8" ];
+  };
 
   # Enable bluethooth
   hardware.bluetooth.enable = true;
@@ -151,7 +165,7 @@
     zsh
     zsh-powerlevel10k
     oh-my-zsh
-    neofetch
+    fastfetch
 
     # Clipboard & Screenshot
     wl-clipboard
@@ -159,6 +173,8 @@
     swappy
     grim
     slurp
+    wf-recorder
+    ffmpeg
 
     # Utilities
     poppler-utils # for pdfunite
