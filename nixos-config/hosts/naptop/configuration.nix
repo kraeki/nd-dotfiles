@@ -198,6 +198,10 @@
     poppler-utils # for pdfunite
     vicinae      # launcher
 
+    # Speech-to-text
+    whisper-cpp  # offline transcription
+    wtype        # Wayland keystroke injection
+
     # Neovim & dependencies
     neovim
     fzf
