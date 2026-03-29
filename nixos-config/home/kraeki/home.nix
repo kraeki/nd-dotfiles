@@ -56,11 +56,16 @@
     codex
     gemini-cli
 
+    # Google Drive Sync
+    rclone
+    syncthing
+
     # Creative
     audacity
     inkscape
     gimp
     davinci-resolve-studio
+    shotcut
 
     # Entertainment
     steam
@@ -80,18 +85,24 @@
 
     # Misc
     teamviewer
+
+    firefox
   ];
 
   programs.google-chrome = {
     enable = true;
     commandLineArgs = [
       "--ozone-platform=wayland"
-      "--use-gl=egl"
+      "--use-gl=angle"
+      "--use-angle=vulkan"
       "--enable-gpu-rasterization"
       "--enable-zero-copy"
-      "--enable-native-gpu-memory-buffers"
-      "--enable-features=WaylandWindowDecorations,VaapiVideoDecoder,CanvasOopRasterization"
+      "--ignore-gpu-blocklist"
+      "--enable-features=Vulkan,VulkanFromANGLE,DefaultANGLEVulkan,AcceleratedVideoDecodeLinuxGL,AcceleratedVideoDecodeLinuxZeroCopyGL,AcceleratedVideoEncoder,VaapiIgnoreDriverChecks,UseMultiPlaneFormatForHardwareVideo"
     ];
   };
 
+  services.syncthing = {                                                                                                            
+     enable = true;                                                                                                                  
+   };
 }

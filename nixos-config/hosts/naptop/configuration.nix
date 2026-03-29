@@ -106,7 +106,10 @@
   };
 
   # Wayland for Chromium-family apps (Chrome/Electron) on NixOS
-  environment.sessionVariables.NIXOS_OZONE_WL = "1";  # :contentReference[oaicite:2]{index=2}
+  environment.sessionVariables = {
+    NIXOS_OZONE_WL = "1";
+    LIBVA_DRIVER_NAME = "radeonsi";  # Explicit VA-API driver for AMD
+  };
   # List packages installed in system profile.
   environment.systemPackages = with pkgs; [
     # System tools
@@ -216,7 +219,15 @@
     dedicatedServer.openFirewall = false;  # Optional
   };
   
-  hardware.graphics.enable32Bit = true; # Required for 32-bit games
+  # GPU: AMD Radeon 780M (Phoenix1, RDNA3) - Mesa RADV for Vulkan, radeonsi for GL + VA-API
+  hardware.graphics = {
+    enable = true;
+    enable32Bit = true; # Required for 32-bit games
+    extraPackages = with pkgs; [
+      vulkan-loader     # Vulkan ICD loader
+      libvdpau-va-gl    # VDPAU -> VA-API bridge
+    ];
+  };
   hardware.steam-hardware.enable = true;  # Enables udev rules for game controllers
   ## - Steam
 
