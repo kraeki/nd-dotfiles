@@ -49,7 +49,7 @@
   # Fixes: Captive portal detection (WiFi DNS is reachable for connectivity checks)
   services.resolved = {
     enable = true;
-    fallbackDns = [ "1.1.1.1" "8.8.8.8" ];
+    settings.Resolve.FallbackDNS = [ "1.1.1.1" "8.8.8.8" ];
   };
 
   # Enable bluethooth
@@ -64,6 +64,15 @@
     "kernel.nmi_watchdog" = 0;           # Disable NMI watchdog to reduce power consumption
     "vm.dirty_writeback_centisecs" = 6000;  # Aggregate disk I/O (60s vs default 5s)
     "vm.laptop_mode" = 5;                # Batch I/O operations for better power efficiency
+    "vm.swappiness" = 10;               # Prefer RAM, use zram only as safety net
+    "vm.vfs_cache_pressure" = 50;       # Keep more filesystem metadata cached (32GB RAM)
+  };
+
+  # Zram: compressed in-RAM swap as OOM safety net
+  zramSwap = {
+    enable = true;
+    memoryPercent = 25;
+    algorithm = "zstd";
   };
 
   # Set your time zone.
@@ -163,6 +172,12 @@
     bluez
     thunderbolt
     powertop
+    framework-tool    # Battery charge thresholds, fan control (fw-ectool)
+
+    # GPU diagnostics
+    libva-utils       # vainfo - verify VA-API hardware decode
+    vulkan-tools      # vulkaninfo - verify Vulkan
+    mesa-demos        # glxinfo/eglinfo
 
     # Shell
     zsh
@@ -199,14 +214,16 @@
   ## Power Management
   # Use power-profiles-daemon as recommended by AMD and Framework for Ryzen 7040
   services.power-profiles-daemon.enable = true;
-  powerManagement.powertop.enable = true;
+
+  # powertop --auto-tune conflicts with power-profiles-daemon; keep powertop
+  # installed for interactive diagnostics but don't let it auto-tune at boot
+  powerManagement.powertop.enable = false;
 
   # TLP conflicts with power-profiles-daemon and is not recommended for AMD Ryzen 7040
   services.tlp.enable = false;
 
-  # Battery charge thresholds (Framework specific)
-  # Note: These need framework-tool or manual sysfs writes to persist
-  # Consider using systemd-tmpfiles or udev rules for this
+  # Disable NetworkManager-wait-online (unnecessary for desktop, saves ~5s boot)
+  systemd.services.NetworkManager-wait-online.enable = false;
 
 
   ## 1password needs keyring 
@@ -225,7 +242,6 @@
     enable32Bit = true; # Required for 32-bit games
     extraPackages = with pkgs; [
       vulkan-loader     # Vulkan ICD loader
-      libvdpau-va-gl    # VDPAU -> VA-API bridge
     ];
   };
   hardware.steam-hardware.enable = true;  # Enables udev rules for game controllers
@@ -264,7 +280,10 @@
   services.blueman.enable = true;
   services.upower.enable = true;
 
-  virtualisation.docker.enable = true;
+  virtualisation.docker = {
+    enable = true;
+    enableOnBoot = false;  # Start on first docker command, saves ~1.8s boot
+  };
 
   # This value determines the NixOS release from which the default
   # settings for stateful data, like file locations and database versions
@@ -277,6 +296,13 @@
   nix.settings = {
     experimental-features = [ "nix-command" "flakes" ];
     secret-key-files = ["/etc/nix/signing-key.sec"];
+  };
+
+  # Auto garbage-collect old generations weekly (currently 1093 generations / 196GB store)
+  nix.gc = {
+    automatic = true;
+    dates = "weekly";
+    options = "--delete-older-than 14d";
   };
 
 }

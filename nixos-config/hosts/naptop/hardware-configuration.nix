@@ -16,6 +16,7 @@
   fileSystems."/" =
     { device = "/dev/disk/by-uuid/2e8f5ff5-2cd6-4462-91e0-41bc094f0784";
       fsType = "ext4";
+      options = [ "noatime" "discard" ];  # Reduce SSD writes + real-time TRIM
     };
 
   boot.initrd.luks.devices."luks-a16e8cfe-55b2-477c-919b-dc32da5187dc".device = "/dev/disk/by-uuid/a16e8cfe-55b2-477c-919b-dc32da5187dc";

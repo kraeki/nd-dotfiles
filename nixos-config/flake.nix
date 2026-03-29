@@ -6,11 +6,12 @@
     nixpkgs.url = "github:NixOS/nixpkgs/nixos-unstable";
     home-manager.url = "github:nix-community/home-manager";
     home-manager.inputs.nixpkgs.follows = "nixpkgs";
+    nixos-hardware.url = "github:NixOS/nixos-hardware";
     hyprdynamicmonitors.url = "github:fiffeek/hyprdynamicmonitors";
     hyprdynamicmonitors.inputs.nixpkgs.follows = "nixpkgs";
   };
 
-  outputs = { self, nixpkgs, home-manager, hyprdynamicmonitors, ... } @ inputs:
+  outputs = { self, nixpkgs, home-manager, nixos-hardware, hyprdynamicmonitors, ... } @ inputs:
     let
       system = "x86_64-linux";
     in {
@@ -19,6 +20,7 @@
           inherit system;
           specialArgs = { inherit home-manager hyprdynamicmonitors; };
           modules = [
+            nixos-hardware.nixosModules.framework-16-7040-amd
             ./hosts/naptop/configuration.nix
             ./theme.nix
             hyprdynamicmonitors.nixosModules.default
