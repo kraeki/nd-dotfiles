@@ -103,7 +103,7 @@
   users.users.kraeki = {
     isNormalUser = true;
     description = "Andreas Schmid";
-    extraGroups = [ "networkmanager" "wheel" "docker" ];
+    extraGroups = [ "networkmanager" "wheel" "docker" "video" "render" ];
     shell = pkgs.zsh;
     packages = with pkgs; [];
   };
