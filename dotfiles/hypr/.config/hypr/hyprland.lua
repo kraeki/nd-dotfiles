@@ -150,6 +150,12 @@ hl.config({
 -- Per-device tweak (was: device { name = epic mouse V1; sensitivity = -0.5 })
 hl.device({ name = "epic mouse V1", sensitivity = -0.5 })
 
+-- Vicinae pastes (emoji, snippets) through a virtual keyboard. Clear the global
+-- kb_options remap (caps:super, ctrl<->alt swap) on it so vicinae's synthetic
+-- Ctrl+V arrives clean instead of being mangled into a stray combo that broke
+-- emoji paste and misfired into the rofi/cliphist keybinds.
+hl.device({ name = "vicinae-snippet-virtual-keyboard", kb_options = "" })
+
 -- Touchpad gesture (was: gestures { gesture = 3, horizontal, workspace })
 hl.gesture({ fingers = 3, direction = "horizontal", action = "workspace" })
 
