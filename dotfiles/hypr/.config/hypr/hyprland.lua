@@ -311,7 +311,7 @@ hl.workspace_rule({ workspace = "special:obsidian", no_rounding = true, border_s
 ----------------------------------------------------------------------
 
 -- Scratchpad placement
-hl.window_rule({ name = "windowrule-1", match = { class = "^(Slack)$" },    workspace = "special:slack" })
+hl.window_rule({ name = "windowrule-1", match = { class = "^([Ss]lack)$" },    workspace = "special:slack" })
 hl.window_rule({ name = "windowrule-2", match = { class = "^(obsidian)$" }, workspace = "special:obsidian" })
 
 -- Google Meet always on workspace 2

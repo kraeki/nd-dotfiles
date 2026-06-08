@@ -14,18 +14,18 @@ if [ -n "$visible_special" ]; then
 		workspace_name=${workspace#special:}
 		if [ -z "$workspace_name" ]; then
 			# Generic special workspace
-			hyprctl dispatch togglespecialworkspace
+			hyprctl dispatch 'hl.dsp.workspace.toggle_special()'
 		else
 			# Named special workspace (slack, obsidian, etc.)
-			hyprctl dispatch togglespecialworkspace "$workspace_name"
+			hyprctl dispatch "hl.dsp.workspace.toggle_special(\"$workspace_name\")"
 		fi
 	done <<< "$visible_special"
 fi
 
 if [ "$current_workspace" -eq "$target_workspace" ]; then
 	# If we are already on the target workspace, move to the previous one
-	hyprctl dispatch workspace previous
+	hyprctl dispatch 'hl.dsp.focus({workspace="previous"})'
 else
 	# Otherwise, move to the target workspace
-	hyprctl dispatch workspace "$target_workspace"
+	hyprctl dispatch "hl.dsp.focus({workspace=$target_workspace})"
 fi
