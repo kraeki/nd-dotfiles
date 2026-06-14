@@ -141,9 +141,10 @@ hl.config({
 
     xwayland = { force_zero_scaling = true },
 
-    -- Animations were disabled in animations.conf (second `animations { enabled = 0 }`
-    -- block overrode the first). The original bezier/animation defs are preserved in
-    -- the animations.conf backup if you want to re-enable and port them.
+    -- Animations were disabled in the old animations.conf (a second
+    -- `animations { enabled = 0 }` block overrode the first). The original
+    -- bezier/animation defs live in git history (animations.conf, removed) if
+    -- you want to re-enable and port them.
     animations = { enabled = false },
 })
 

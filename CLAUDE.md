@@ -63,14 +63,19 @@ nix flake lock --update-input nixpkgs
 This separation keeps system concerns distinct from user preferences and makes home-manager configuration portable.
 
 ### Hyprland Configuration
-- Main config: `dotfiles/hypr/.config/hypr/hyprland.conf`
-- Modular structure using `source` statements:
-  - `keybindings.conf` - Keyboard shortcuts
-  - `windowrules.conf` - Window behavior rules
-  - `animations.conf` - Animation settings
-  - `themes/*.conf` - Theme and color settings
-  - `monitors.conf` - User-specific monitor config (static)
-  - `userprefs.conf` - User-specific overrides (static, sourced last)
+- Main config: `dotfiles/hypr/.config/hypr/hyprland.lua` (Hyprland 0.55+ Lua config)
+  - Hyprland loads `hyprland.lua` in preference to `hyprland.conf`. This file is
+    authoritative and self-contained: keybindings, window rules, animations, theme,
+    and a static fallback monitor were all ported into it from the old modular
+    `*.conf` files (which have been removed).
+  - Lua specifics: bindings use `hl.bind(...)` / `hl.dsp.*`; runtime dispatch from
+    scripts uses `hyprctl dispatch 'hl.dsp.*'` and `hyprctl eval 'hl.*'` (the legacy
+    `hyprctl dispatch <legacy>` / `hyprctl keyword` forms are rejected).
+- `hyprlock.conf` - still hyprlang; read by the separate hyprlock program (not part
+  of the Lua config).
+- Monitors: dynamic per-layout switching is handled by **kanshi** (config
+  `dotfiles/kanshi/.config/kanshi/config`, profiles `laptop-only` + `docked-home`,
+  started from `hyprland.lua`). `Super+M` runs manual override scripts.
 - Scripts location: `~/.local/share/bin/` (referenced as `$srcPath` in config)
 - Monitor management scripts: `dotfiles/hypr/.config/hypr/bin/monitor-*.sh`
 
