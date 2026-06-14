@@ -2,7 +2,7 @@
 # your system.  Help is available in the configuration.nix(5) man page
 # and in the NixOS manual (accessible by running ‘nixos-help’).
 
-{ config, pkgs, home-manager, hyprdynamicmonitors, ... }:
+{ config, pkgs, home-manager, ... }:
 
 {
   imports =
@@ -60,6 +60,11 @@
   boot.kernelModules = [ "hid_apple" "wireguard" ];
   boot.extraModprobeConfig = ''
     options hid_apple swap_fn_leftctrl=1 swap_opt_cmd=1 fnmode=2
+    # Disable USB autosuspend on the MediaTek (0e8d:e616) Bluetooth radio.
+    # btusb autosuspend (default Y) powers down the controller after idle and
+    # this chip doesn't reliably wake on a peripheral reconnect, so the BT
+    # mouse fails to reconnect after long idle.
+    options btusb enable_autosuspend=0
   '';
 
   networking.hostName = "naptop"; # Define your hostname.
@@ -183,7 +188,6 @@
     tmux
     glow
     gh
-    hyprdynamicmonitors.packages.${pkgs.system}.default
 
     # Desktop environment
     hyprland

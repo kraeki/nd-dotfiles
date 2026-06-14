@@ -5,9 +5,9 @@
 -- ║  Hyprland loads hyprland.lua in preference to hyprland.conf, so this    ║
 -- ║  file is authoritative once present. Delete it to fall back to .conf.   ║
 -- ║                                                                         ║
--- ║  NOTE: monitors are now STATIC here (hyprdynamicmonitors emits hyprlang ║
--- ║  and cannot drive a Lua entrypoint). hyprlock.conf stays hyprlang —     ║
--- ║  it is a separate program and not affected by this migration.           ║
+-- ║  NOTE: a static fallback monitor is set below; dynamic per-layout       ║
+-- ║  switching is handled by kanshi (exec'd at startup) via its profiles.    ║
+-- ║  hyprlock.conf stays hyprlang — separate program, unaffected.           ║
 -- ╚═══════════════════════════════════════════════════════════════════════╝
 
 ----------------------------------------------------------------------
