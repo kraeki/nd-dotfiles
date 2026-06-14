@@ -45,15 +45,16 @@
   boot.loader.systemd-boot.enable = true;
   boot.loader.efi.canTouchEfiVariables = true;
 
-  # Use latest kernel.
-  boot.kernelPackages = pkgs.linuxPackages_latest;
-  #boot.kernelPackages = pkgs.linuxPackages_6_15;
+  # LTS kernel - more stable amdgpu driver (6.19.8 had slab allocator crashes)
+  boot.kernelPackages = pkgs.linuxPackages;
+  #boot.kernelPackages = pkgs.linuxPackages_latest;
 
   # AMD pstate driver for optimal power management on Ryzen 7040
   # active mode enables EPP (Energy Performance Preference) for PPD control
   boot.kernelParams = [
     "amd_pstate=active"
     "amdgpu.dcdebugmask=0x10"  # Fix video freezes on Framework AMD
+    "amdgpu.gpu_recovery=1"    # Auto-reset GPU on hang instead of freezing system
   ];
 
   boot.kernelModules = [ "hid_apple" "wireguard" ];
@@ -90,6 +91,7 @@
 
   # Kernel power management parameters (ArchWiki recommendations)
   boot.kernel.sysctl = {
+    "kernel.sysrq" = 1;                    # Enable all SysRq functions for emergency recovery (REISUB)
     "kernel.nmi_watchdog" = 0;           # Disable NMI watchdog to reduce power consumption
     "vm.dirty_writeback_centisecs" = 6000;  # Aggregate disk I/O (60s vs default 5s)
     "vm.laptop_mode" = 5;                # Batch I/O operations for better power efficiency
@@ -275,6 +277,7 @@
     enable32Bit = true; # Required for 32-bit games
     extraPackages = with pkgs; [
       vulkan-loader     # Vulkan ICD loader
+      libglvnd          # libEGL.so.1 / libGL.so.1 dispatcher (Chrome/ANGLE dlopens these)
     ];
   };
   hardware.steam-hardware.enable = true;  # Enables udev rules for game controllers
