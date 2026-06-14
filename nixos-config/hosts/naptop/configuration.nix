@@ -174,6 +174,7 @@
     unzip
     file
     whois
+    dig
     tcpdump
     dnsmasq
     nodejs_22
@@ -243,6 +244,9 @@
 
   # programs.nano.enable = false;
   services.hardware.bolt.enable = true;
+
+  # timesync 
+  services.timesyncd.enable = true;
 
   services.teamviewer.enable = true;
 
@@ -314,7 +318,15 @@
   };
 
   services.blueman.enable = true;
-  services.upower.enable = true;
+  services.upower = {
+    enable = true;
+    percentageLow = 15;
+    percentageCritical = 8;
+    percentageAction = 5;
+    criticalPowerAction = "Suspend";
+    allowRiskyCriticalPowerAction = true;
+  };
+  systemd.services.upower.restartTriggers = [ config.environment.etc."UPower/UPower.conf".source ];
 
   virtualisation.docker = {
     enable = true;
