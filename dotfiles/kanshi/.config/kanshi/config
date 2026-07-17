@@ -1,12 +1,25 @@
 # https://manpages.debian.org/experimental/sway/sway-output.5.en.html
 # https://sr.ht/~emersion/kanshi/
+#
+# NOTE on scale: kanshi drives Hyprland via the wlr-output-management protocol,
+# which sends the scale verbatim and STRICTLY validates it. eDP-1 is 2256x1504;
+# a scale of 1.333 yields a non-integer logical size (1692.42 x 1128.28), so
+# Hyprland rejects the whole configuration and the panel never enables (kanshi
+# still logs "applied" because the request was sent). Use 1.333333 (exactly 4/3)
+# -> 1692 x 1128, which Hyprland accepts. (hyprctl/hl.monitor auto-rounds and so
+# masks this; the protocol path does not.)
+#
+# NOTE on mode: these Dell U2518D units report NO preferred mode over EDID
+# (Hyprland shows preferredMode: None). Without an explicit `mode`, kanshi/
+# Hyprland fall back to 1280x720 on every dock, giving wrong resolution + DPI.
+# Pin the native mode 2560x1440@59.95Hz explicitly so docking is deterministic.
 
 profile laptop-only {
-  output eDP-1 enable scale 1.333
+  output eDP-1 enable scale 1.333333
 }
 
 profile docked-home {
   output eDP-1 disable
-  output "Dell Inc. DELL U2518D 3C4YP898AHPL" enable transform 90 position 0,0
-  output "Dell Inc. DELL U2518D 3C4YP8A4AGBL" enable position 1440,560
+  output "Dell Inc. DELL U2518D 3C4YP898AHPL" enable mode 2560x1440@59.95Hz transform 90 position 0,0
+  output "Dell Inc. DELL U2518D 3C4YP8A4AGBL" enable mode 2560x1440@59.95Hz position 1440,560
 }
