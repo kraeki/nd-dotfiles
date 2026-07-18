@@ -1,5 +1,33 @@
 { config, pkgs, ... }:
 
+let
+  # herdr: terminal agent-multiplexer (github.com/ogulcancelik/herdr).
+  # Not in nixpkgs; upstream ships a prebuilt Linux binary that we patchelf
+  # onto the NixOS dynamic loader. Bump `version` + `hash` on updates
+  # (nix store prefetch-file <url>).
+  herdr = pkgs.stdenv.mkDerivation rec {
+    pname = "herdr";
+    version = "0.7.4";
+    src = pkgs.fetchurl {
+      url = "https://github.com/ogulcancelik/herdr/releases/download/v${version}/herdr-linux-x86_64";
+      hash = "sha256-vA/ALUulAPnKwjU6Q+Z/4DZ4Xsym61U3jgUPrDwQMFk=";
+    };
+    dontUnpack = true;
+    nativeBuildInputs = [ pkgs.autoPatchelfHook ];
+    buildInputs = [ pkgs.stdenv.cc.cc.lib ];
+    installPhase = ''
+      runHook preInstall
+      install -Dm755 $src $out/bin/herdr
+      runHook postInstall
+    '';
+    meta = with pkgs.lib; {
+      description = "Terminal multiplexer / agent multiplexer for AI coding agents";
+      homepage = "https://herdr.dev/";
+      platforms = [ "x86_64-linux" ];
+    };
+  };
+in
+
 {
   home.username = "kraeki";
   home.homeDirectory = "/home/kraeki";
@@ -56,6 +84,10 @@
     codex
     gemini-cli
 
+    # Runs AppImages on NixOS (patches loader paths, provides FHS + FUSE).
+    # e.g. `appimage-run ~/Downloads/VibeTyper.AppImage`
+    appimage-run
+
     # Google Drive Sync
     rclone
     syncthing
@@ -82,6 +114,7 @@
 
     # Shell utilities
     z-lua
+    herdr            # Terminal agent-multiplexer (prebuilt, defined in let block)
 
     # Misc
     teamviewer
