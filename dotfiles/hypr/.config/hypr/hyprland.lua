@@ -66,6 +66,7 @@ hl.on("hyprland.start", function()
     hl.exec_cmd("wl-paste --type image --watch cliphist store")                          -- clipboard: image
     hl.exec_cmd(srcPath .. "/wallpaper.sh")                                              -- wallpaper daemon
     hl.exec_cmd(srcPath .. "/batterynotify.sh")                                          -- battery notifications
+    hl.exec_cmd("wayscriber --daemon")                                                   -- screen annotation daemon (Super+D toggles it)
 end)
 
 ----------------------------------------------------------------------
@@ -213,13 +214,17 @@ hl.bind("Print",                 hl.dsp.exec_cmd(srcPath .. "/screenshot.sh p"))
 -- Monitor control
 hl.bind(mainMod .. " + M", hl.dsp.exec_cmd(home .. "/.config/hypr/bin/monitor-laptop-only.sh"))
 
--- Speech-to-text dictation
-hl.bind(mainMod .. " + D", hl.dsp.exec_cmd(srcPath .. "/dictation.sh"))
+-- Speech-to-text dictation — right cmd key.
+-- NOTE: the altwin:ctrl_alt_win remap (see input.kb_options) rotates modifiers,
+-- so the physical right cmd emits Control_R at evdev keycode 100 (Hyprland
+-- code:108), NOT Super_R. Bind by keycode to stay immune to the keysym remap;
+-- consuming it also suppresses the stray Control_R.
+hl.bind("code:108", hl.dsp.exec_cmd(srcPath .. "/dictation.sh"))
+
+-- Screen annotation (wayscriber overlay toggle)
+hl.bind(mainMod .. " + D", hl.dsp.exec_cmd("wayscriber --daemon-toggle"))
 
 -- Custom scripts
-hl.bind(mainMod .. " + ALT + G",    hl.dsp.exec_cmd(srcPath .. "/gamemode.sh"))
-hl.bind(mainMod .. " + ALT + up",   hl.dsp.exec_cmd(srcPath .. "/wbarconfgen.sh n"))
-hl.bind(mainMod .. " + ALT + down", hl.dsp.exec_cmd(srcPath .. "/wbarconfgen.sh p"))
 hl.bind(mainMod .. " + V",          hl.dsp.exec_cmd(srcPath .. "/cliphist-menu.sh c"))
 
 -- Move / change window focus

@@ -1,4 +1,4 @@
-{ config, pkgs, ... }:
+{ config, pkgs, inputs, ... }:
 
 let
   # herdr: terminal agent-multiplexer (github.com/ogulcancelik/herdr).
@@ -115,6 +115,9 @@ in
     # Shell utilities
     z-lua
     herdr            # Terminal agent-multiplexer (prebuilt, defined in let block)
+
+    # Screen annotation (Wayland/Hyprland, layer-shell) — upstream flake
+    inputs.wayscriber.packages.${pkgs.system}.default
 
     # Misc
     teamviewer
