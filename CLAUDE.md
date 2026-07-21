@@ -73,11 +73,26 @@ This separation keeps system concerns distinct from user preferences and makes h
     `hyprctl dispatch <legacy>` / `hyprctl keyword` forms are rejected).
 - `hyprlock.conf` - still hyprlang; read by the separate hyprlock program (not part
   of the Lua config).
-- Monitors: dynamic per-layout switching is handled by **kanshi** (config
-  `dotfiles/kanshi/.config/kanshi/config`, profiles `laptop-only` + `docked-home`,
-  started from `hyprland.lua`). `Super+M` runs manual override scripts.
+- Monitors: **fully native, no daemon**. Declarative `hl.monitor` rules in the
+  MONITORS block of `hyprland.lua` (eDP-1 + the two Dells by `desc:`, plus a
+  catch-all first since Hyprland applies the LAST matching rule). Hyprland
+  re-applies these automatically on every hotplug, so docking "just works".
+  - The laptop panel (eDP-1) is toggled by **lid-switch binds** (clamshell
+    docking): `switch:on:Lid Switch` (lid closed) disables eDP-1;
+    `switch:off:Lid Switch` (lid open) re-enables it @ scale 1.333. Required
+    because a closing lid does NOT disconnect eDP at the DRM level (no hotplug).
+    `services.logind.settings.Login.HandleLidSwitchDocked = "ignore"` keeps
+    logind from suspending while docked so Hyprland gets the event.
+  - This replaced **kanshi** (and a short-lived socket2 listener). No
+    wlr-output-management daemon (kanshi/shikane/way-displays) can do reliable
+    dock↔undock on Hyprland: disabling a head drops it from the protocol list
+    (Hyprland #1274), so undock never re-enables the internal panel.
 - Scripts location: `~/.local/share/bin/` (referenced as `$srcPath` in config)
-- Monitor management scripts: `dotfiles/hypr/.config/hypr/bin/monitor-*.sh`
+- Manual monitor overrides: `dotfiles/hypr/.config/hypr/bin/monitor-*.sh`
+  (`monitor-laptop-only.sh` = `Super+M`, forces eDP-1 on + Dells off;
+  `monitor-docked-home.sh` = force the docked layout). Both apply via
+  `hyprctl eval 'hl.monitor(...)'` and each sets `disabled=` explicitly, because
+  a mode/position rule alone does NOT clear a previously-set `disabled` flag.
 
 ### Launcher System
 Uses `vicinae` as the primary application launcher:
@@ -127,7 +142,7 @@ Auto-started in Hyprland (`exec-once`):
 - `dunst` - Notifications
 - `wpaperd` - Wallpaper daemon
 - `vicinae server` - Launcher
-- `kanshi` - Monitor management
+- (monitors need no daemon — declarative `hl.monitor` rules + lid-switch binds; replaced kanshi)
 - `cliphist` - Clipboard history (with wl-paste)
 - `blueman-applet`, `nm-applet` - System tray
 

@@ -5,8 +5,9 @@
 -- ║  Hyprland loads hyprland.lua in preference to hyprland.conf, so this    ║
 -- ║  file is authoritative once present. Delete it to fall back to .conf.   ║
 -- ║                                                                         ║
--- ║  NOTE: a static fallback monitor is set below; dynamic per-layout       ║
--- ║  switching is handled by kanshi (exec'd at startup) via its profiles.    ║
+-- ║  NOTE: monitors are declarative (see MONITORS below) — Hyprland          ║
+-- ║  auto-applies each rule on hotplug, so no daemon (kanshi/socket2         ║
+-- ║  listener). The laptop panel is toggled by the LID SWITCH binds.         ║
 -- ║  hyprlock.conf stays hyprlang — separate program, unaffected.           ║
 -- ╚═══════════════════════════════════════════════════════════════════════╝
 
@@ -23,10 +24,22 @@ local browser = "google-chrome-stable"
 local mainMod = "SUPER"
 
 ----------------------------------------------------------------------
--- MONITORS  (static — was: monitor = ,preferred,auto,auto + scale 1)
+-- MONITORS  (declarative — Hyprland auto-applies each rule on hotplug)
 ----------------------------------------------------------------------
-
-hl.monitor({ output = "", mode = "preferred", position = "auto", scale = 1 })
+-- No daemon (was kanshi, then a socket2 listener — both removed). Hyprland
+-- re-applies these rules every time a matching output connects, so docking the
+-- two home Dells "just works". The laptop panel (eDP-1) is toggled on/off by
+-- the LID SWITCH binds further down (clamshell docking), because a closing lid
+-- does NOT disconnect eDP at the DRM level and so never triggers a hotplug.
+--
+-- Dell U2518D units report no EDID preferred mode -> pin 2560x1440@59.95 or they
+-- fall back to 1280x720. transform=1 == 90° (left panel is portrait).
+-- Order matters: Hyprland applies the LAST matching rule, so the catch-all
+-- (output="") must come FIRST and the specific rules AFTER it.
+hl.monitor({ output = "", mode = "preferred", position = "auto", scale = 1 })  -- fallback for any other output
+hl.monitor({ output = "eDP-1", mode = "preferred", position = "auto", scale = 1.333 })
+hl.monitor({ output = "desc:Dell Inc. DELL U2518D 3C4YP898AHPL", mode = "2560x1440@59.95", position = "0x0",    transform = 1, scale = 1 })
+hl.monitor({ output = "desc:Dell Inc. DELL U2518D 3C4YP8A4AGBL", mode = "2560x1440@59.95", position = "1440x560",              scale = 1 })
 
 ----------------------------------------------------------------------
 -- ENVIRONMENT VARIABLES
@@ -55,7 +68,6 @@ hl.on("hyprland.start", function()
     hl.exec_cmd(srcPath .. "/polkitkdeauth.sh")                                          -- auth dialogue for GUI apps
     hl.exec_cmd("waybar")
     hl.exec_cmd("vicinae server")
-    hl.exec_cmd("kanshi")
     hl.exec_cmd("obsidian")
     hl.exec_cmd("slack")
     hl.exec_cmd("blueman-applet")
@@ -213,6 +225,15 @@ hl.bind("Print",                 hl.dsp.exec_cmd(srcPath .. "/screenshot.sh p"))
 
 -- Monitor control
 hl.bind(mainMod .. " + M", hl.dsp.exec_cmd(home .. "/.config/hypr/bin/monitor-laptop-only.sh"))
+
+-- Laptop lid (clamshell docking). switch:on = lid CLOSED, switch:off = lid OPEN
+-- (verified against Hyprland source). These touch ONLY eDP-1 — the Dells are
+-- handled by the declarative monitor rules on hotplug. `locked` is required so
+-- the binds fire while the session is locked. logind must not suspend on lid
+-- close while docked (services.logind.settings.Login.HandleLidSwitchDocked =
+-- "ignore" in configuration.nix; also the systemd default).
+hl.bind("switch:on:Lid Switch",  hl.dsp.exec_cmd("hyprctl eval 'hl.monitor({output=\"eDP-1\", disabled=true})'"),                                                     { locked = true })
+hl.bind("switch:off:Lid Switch", hl.dsp.exec_cmd("hyprctl eval 'hl.monitor({output=\"eDP-1\", mode=\"preferred\", position=\"auto\", scale=1.333, disabled=false})'"), { locked = true })
 
 -- Speech-to-text dictation — right cmd key.
 -- NOTE: the altwin:ctrl_alt_win remap (see input.kb_options) rotates modifiers,

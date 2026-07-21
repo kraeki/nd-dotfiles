@@ -198,7 +198,6 @@
     kitty
     waybar
     rofi
-    kanshi
     nautilus
     networkmanagerapplet
     hyprpicker
@@ -265,6 +264,13 @@
 
   # TLP conflicts with power-profiles-daemon and is not recommended for AMD Ryzen 7040
   services.tlp.enable = false;
+
+  # Clamshell docking: when docked (external monitors present) closing the lid
+  # must NOT suspend — Hyprland's lid-switch binds disable the internal panel
+  # instead (see hyprland.lua "switch:on/off:Lid Switch"). systemd already
+  # defaults HandleLidSwitchDocked=ignore; set it explicitly so it's documented
+  # and stable. Undocked lid-close still suspends (HandleLidSwitch untouched).
+  services.logind.settings.Login.HandleLidSwitchDocked = "ignore";
 
   # Disable NetworkManager-wait-online (unnecessary for desktop, saves ~5s boot)
   systemd.services.NetworkManager-wait-online.enable = false;
