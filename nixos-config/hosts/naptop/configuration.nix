@@ -199,6 +199,8 @@
     waybar
     rofi
     nautilus
+    sushi             # Nautilus quick-preview (spacebar)
+    papers            # GNOME document viewer (PDF, etc.)
     networkmanagerapplet
     hyprpicker
 
