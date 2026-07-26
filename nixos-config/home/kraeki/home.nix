@@ -104,6 +104,12 @@ in
     '';
   };
 
+  # Fuzzy finder with zsh integration (Ctrl-R history, Ctrl-T files, Alt-C cd).
+  programs.fzf = {
+    enable = true;
+    enableZshIntegration = true;
+  };
+
   home.packages = with pkgs; [
     # Productivity & Communication
     obsidian
@@ -137,6 +143,7 @@ in
 
     # Development tools
     lazygit          # TUI for git (LazyVim integration)
+    lazydocker       # TUI for docker
     python3          # Python runtime for LSPs and tools
     glib             # Provides gio trash command
     ast-grep         # Structural search/replace
@@ -145,6 +152,7 @@ in
 
     # Shell utilities
     z-lua
+    tealdeer         # Fast tldr client (provides the `tldr` command)
     herdr            # Terminal agent-multiplexer (prebuilt, defined in let block)
 
     # Screen annotation (Wayland/Hyprland, layer-shell) — upstream flake
