@@ -232,8 +232,13 @@ hl.bind(mainMod .. " + M", hl.dsp.exec_cmd(home .. "/.config/hypr/bin/monitor-la
 -- the binds fire while the session is locked. logind must not suspend on lid
 -- close while docked (services.logind.settings.Login.HandleLidSwitchDocked =
 -- "ignore" in configuration.nix; also the systemd default).
-hl.bind("switch:on:Lid Switch",  hl.dsp.exec_cmd("hyprctl eval 'hl.monitor({output=\"eDP-1\", disabled=true})'"),                                                     { locked = true })
-hl.bind("switch:off:Lid Switch", hl.dsp.exec_cmd("hyprctl eval 'hl.monitor({output=\"eDP-1\", mode=\"preferred\", position=\"auto\", scale=1.333, disabled=false})'"), { locked = true })
+--
+-- lid-close.sh disables eDP-1 ONLY when an external monitor is present (docked).
+-- Undocked, it does nothing so logind suspends cleanly — disabling the sole
+-- monitor left Hyprland headless and it often couldn't re-light eDP-1 on
+-- lid-open (needed a power cycle). lid-open.sh re-enables eDP-1 with verify+retry.
+hl.bind("switch:on:Lid Switch",  hl.dsp.exec_cmd(home .. "/.config/hypr/bin/lid-close.sh"), { locked = true })
+hl.bind("switch:off:Lid Switch", hl.dsp.exec_cmd(home .. "/.config/hypr/bin/lid-open.sh"),  { locked = true })
 
 -- Speech-to-text dictation — right cmd key.
 -- NOTE: the altwin:ctrl_alt_win remap (see input.kb_options) rotates modifiers,
