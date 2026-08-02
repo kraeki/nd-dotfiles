@@ -300,8 +300,15 @@
   hardware.steam-hardware.enable = true;  # Enables udev rules for game controllers
   ## - Steam
 
-  programs.hyprland.enable = true; 
-  programs.zsh.enable = true; 
+  programs.hyprland.enable = true;
+  programs.zsh.enable = true;
+
+  # Nautilus right-click "Open in Terminal" (kitty). The module also wires up
+  # the required dconf setting so the entry launches kitty (not gnome-terminal).
+  programs.nautilus-open-any-terminal = {
+    enable = true;
+    terminal = "kitty";
+  };
 
   # Some programs need SUID wrappers, can be configured further or are
   # started in user sessions.
