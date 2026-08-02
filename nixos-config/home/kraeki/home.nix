@@ -144,6 +144,7 @@ in
     # Development tools
     lazygit          # TUI for git (LazyVim integration)
     lazydocker       # TUI for docker
+    superfile        # TUI file manager (`spf`)
     python3          # Python runtime for LSPs and tools
     glib             # Provides gio trash command
     ast-grep         # Structural search/replace
