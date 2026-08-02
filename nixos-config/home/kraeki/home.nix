@@ -159,6 +159,15 @@ in
     # Screen annotation (Wayland/Hyprland, layer-shell) — upstream flake
     inputs.wayscriber.packages.${pkgs.system}.default
 
+    # Handy: offline push-to-talk speech-to-text (Whisper GPU / Parakeet CPU),
+    # types transcription into the focused field. Runs alongside VoiceFlow (which
+    # stays on the right-cmd key) — Handy is autostarted via hyprland.lua
+    # exec-once and toggled with F5 (`handy --toggle-transcription`). Wayland text
+    # injection uses wtype (already in systemPackages). NOTE: first build
+    # compiles from source (~1100 Rust crates) — upstream's cachix cache has no
+    # x86_64 build for the pinned rev (see flake.nix / configuration.nix).
+    inputs.handy.packages.${pkgs.system}.default
+
     # Misc
     teamviewer
 

@@ -364,6 +364,16 @@
   nix.settings = {
     experimental-features = [ "nix-command" "flakes" ];
     secret-key-files = ["/etc/nix/signing-key.sec"];
+
+    # Handy speech-to-text binary cache. extra-* so cache.nixos.org is kept.
+    # NOTE: upstream's cache currently has no x86_64 build for our pinned rev, so
+    # this is a no-op today (first build compiles from source — see flake.nix).
+    # Kept configured so future Handy revs that ARE cached download prebuilt
+    # instead of recompiling ~1100 Rust crates.
+    extra-substituters = [ "https://handy-computer.cachix.org" ];
+    extra-trusted-public-keys = [
+      "handy-computer.cachix.org-1:Sihzctn6DC0CJM5QeL+9nBEL3CL8c33m777C+eIv748="
+    ];
   };
 
   # Auto garbage-collect old generations weekly (currently 1093 generations / 196GB store)

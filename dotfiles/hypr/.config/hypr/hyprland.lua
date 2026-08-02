@@ -79,6 +79,7 @@ hl.on("hyprland.start", function()
     hl.exec_cmd(srcPath .. "/wallpaper.sh")                                              -- wallpaper daemon
     hl.exec_cmd(srcPath .. "/batterynotify.sh")                                          -- battery notifications
     hl.exec_cmd("wayscriber --daemon")                                                   -- screen annotation daemon (Super+D toggles it)
+    hl.exec_cmd("handy")                                                                 -- speech-to-text; runs in bg, F5 toggles recording
 end)
 
 ----------------------------------------------------------------------
@@ -246,6 +247,12 @@ hl.bind("switch:off:Lid Switch", hl.dsp.exec_cmd(home .. "/.config/hypr/bin/lid-
 -- code:108), NOT Super_R. Bind by keycode to stay immune to the keysym remap;
 -- consuming it also suppresses the stray Control_R.
 hl.bind("code:108", hl.dsp.exec_cmd(srcPath .. "/dictation.sh"))
+
+-- Handy — offline push-to-talk speech-to-text (github.com/cjpais/Handy).
+-- A separate STT engine from VoiceFlow above; Handy autostarts (exec-once) and
+-- this toggles recording into the focused field. Wayland has no global-hotkey
+-- API, so the compositor owns the key.
+hl.bind("F5", hl.dsp.exec_cmd("handy --toggle-transcription"))
 
 -- Screen annotation (wayscriber overlay toggle)
 hl.bind(mainMod .. " + D", hl.dsp.exec_cmd("wayscriber --daemon-toggle"))
