@@ -156,8 +156,15 @@ in
     tealdeer         # Fast tldr client (provides the `tldr` command)
     herdr            # Terminal agent-multiplexer (prebuilt, defined in let block)
 
-    # Screen annotation (Wayland/Hyprland, layer-shell) — upstream flake
-    inputs.wayscriber.packages.${pkgs.system}.default
+    # Screen annotation (Wayland/Hyprland, layer-shell) — upstream flake.
+    # doCheck disabled: wayscriber runs its Rust test suite at build time, and a
+    # handful of tests (font_picker ordering, daemon_v1 fixtures) are sensitive
+    # to the sandbox's font set / toolchain. They pass upstream but fail inside
+    # Nix's hermetic build whenever nixpkgs moves, which would block the entire
+    # system build on a nixpkgs bump. The runtime binary is unaffected. (2026-08-28)
+    (inputs.wayscriber.packages.${pkgs.system}.default.overrideAttrs (_: {
+      doCheck = false;
+    }))
 
     # Handy: offline push-to-talk speech-to-text (Whisper GPU / Parakeet CPU),
     # types transcription into the focused field. Runs alongside VoiceFlow (which
