@@ -158,6 +158,44 @@
   };
   # List packages installed in system profile.
   environment.systemPackages = with pkgs; [
+    # Session entry point -- `hypr` is the one command to start the desktop
+    # from a TTY, so the uwsm invocation is not something to memorise.
+    # See programs.hyprland.withUWSM below for why uwsm is used at all.
+    (writeShellScriptBin "hypr" ''
+      set -euo pipefail
+
+      # --help first, so it still answers from inside a running session.
+      case "''${1:-}" in
+        -h|--help)
+          echo "usage: hypr [-b|--bare]"
+          echo "  (no args)   start Hyprland under uwsm (systemd-managed session)"
+          echo "  -b, --bare  start Hyprland directly, bypassing uwsm"
+          exit 0
+          ;;
+      esac
+
+      if [ -n "''${HYPRLAND_INSTANCE_SIGNATURE:-}" ] || [ -n "''${WAYLAND_DISPLAY:-}" ]; then
+        echo "hypr: a Wayland session is already running in this shell." >&2
+        exit 1
+      fi
+
+      case "''${1:-}" in
+        "") ;;
+        -b|--bare)
+          # Escape hatch if uwsm ever misbehaves: Hyprland's own launcher.
+          # graphical-session.target then gets activated by the exec-once
+          # bootstrap in hyprland.lua instead of by uwsm.
+          exec ${config.programs.hyprland.package}/bin/start-hyprland
+          ;;
+        *)
+          echo "hypr: unknown option: ''$1 (try --help)" >&2
+          exit 2
+          ;;
+      esac
+
+      exec ${config.programs.uwsm.package}/bin/uwsm start -e -D Hyprland hyprland.desktop
+    '')
+
     # System tools
     lsof
     htop
@@ -309,6 +347,29 @@
     enable = true;
     terminal = "kitty";
   };
+
+
+  # Launch Hyprland under uwsm so systemd actually owns the session lifecycle.
+  #
+  # Hyprland's own launcher (start-hyprland) never activates
+  # graphical-session.target. That went unnoticed until xdg-desktop-portal 1.22
+  # added "Requisite=graphical-session.target" to its unit -- after which D-Bus
+  # activation of the portal failed instantly and Chrome/Meet screen sharing
+  # broke (see the AUTOSTART block in hyprland.lua). uwsm binds the compositor
+  # into graphical-session-pre/graphical-session/xdg-desktop-autostart targets,
+  # which is the upstream-recommended fix rather than nudging the target awake
+  # from an exec-once.
+  #
+  # Start it from the TTY with `hypr` (defined in environment.systemPackages
+  # above), which runs `uwsm start -e -D Hyprland hyprland.desktop` -- exactly
+  # what the shipped hyprland-uwsm.desktop entry runs.
+  # `hypr --bare` (and plain `start-hyprland`) still work as a fallback: the
+  # exec-once bootstrap in hyprland.lua stays, and is a harmless no-op once
+  # uwsm has already activated the target.
+  #
+  # Side effect: programs.uwsm.enable flips services.dbus.implementation to
+  # "broker" (dbus-broker), which uwsm recommends for compatibility.
+  programs.hyprland.withUWSM = true;
 
   # Some programs need SUID wrappers, can be configured further or are
   # started in user sessions.

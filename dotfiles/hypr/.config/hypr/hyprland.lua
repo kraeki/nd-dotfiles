@@ -61,10 +61,24 @@ hl.env("GDK_SCALE", "1.333")
 ----------------------------------------------------------------------
 
 hl.on("hyprland.start", function()
-    hl.exec_cmd(srcPath .. "/resetxdgportal.sh")                                         -- reset XDPH for screenshare
-    hl.exec_cmd("dbus-update-activation-environment --systemd WAYLAND_DISPLAY XDG_CURRENT_DESKTOP")
-    hl.exec_cmd("dbus-update-activation-environment --systemd --all")
-    hl.exec_cmd("systemctl --user import-environment WAYLAND_DISPLAY XDG_CURRENT_DESKTOP")
+    -- systemd / D-Bus session bootstrap -- this is what makes screen sharing work.
+    -- Chained in ONE shell so ordering is guaranteed: the environment must be
+    -- imported BEFORE graphical-session.target activates, or
+    -- xdg-desktop-portal-hyprland fails its ConditionEnvironment=WAYLAND_DISPLAY.
+    --
+    -- nixos-fake-graphical-session.target is NixOS's sanctioned hook for a session
+    -- that isn't systemd-aware (Hyprland exec'd bare, no display manager / uwsm).
+    -- It BindsTo graphical-session.target, so starting it activates that target.
+    -- Needed since xdg-desktop-portal 1.22, which added
+    -- "Requisite=graphical-session.target" to its unit: with the target inactive,
+    -- D-Bus activation of the portal fails instantly and Chrome (Google Meet)
+    -- shows no screens to share.
+    --
+    -- resetxdgportal.sh used to run here and was removed: its killall/relaunch
+    -- probed /run/current-system/sw/libexec (absent) then fell back to /usr/lib
+    -- (also absent on NixOS), so it only ever KILLED the portals. systemd quietly
+    -- re-activated them on demand until 1.22 made that fail.
+    hl.exec_cmd("sh -c 'dbus-update-activation-environment --systemd WAYLAND_DISPLAY XDG_CURRENT_DESKTOP; dbus-update-activation-environment --systemd --all; systemctl --user import-environment WAYLAND_DISPLAY XDG_CURRENT_DESKTOP; systemctl --user start nixos-fake-graphical-session.target'")
     hl.exec_cmd(srcPath .. "/polkitkdeauth.sh")                                          -- auth dialogue for GUI apps
     hl.exec_cmd("waybar")
     hl.exec_cmd("vicinae server")
