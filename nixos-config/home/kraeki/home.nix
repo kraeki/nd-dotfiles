@@ -114,6 +114,7 @@ in
     # Productivity & Communication
     obsidian
     _1password-gui
+    signal-desktop
     seahorse
     slack
     claude-code

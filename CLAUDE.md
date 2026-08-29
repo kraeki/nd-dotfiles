@@ -94,6 +94,26 @@ This separation keeps system concerns distinct from user preferences and makes h
   `hyprctl eval 'hl.monitor(...)'` and each sets `disabled=` explicitly, because
   a mode/position rule alone does NOT clear a previously-set `disabled` flag.
 
+### App Hotkeys (Super+A submap)
+Modelled on Omarchy 4's `bindings/applications.lua`, merged into the existing
+`Super+A` submap. Two scripts in `dotfiles/hypr/.local/share/bin/`:
+- `webapp.sh <profile|email> <url>` — runs a site as a Chrome `--app=` window.
+  Chrome names those windows `chrome-<host>__-<Profile_N>`, so the class
+  identifies site *and* account; the script matches it in `hyprctl clients` and
+  focuses the existing window instead of opening a duplicate.
+- `launch-or-focus.sh <class-regex> <command>` — same behaviour for native apps
+  (Signal, 1Password).
+
+The Chrome profile is **pinned per entry** and resolved by email from
+`~/.config/google-chrome/Local State` (so Chrome renumbering profiles can't
+break it). This is deliberately *unlike* `browser-launcher.sh`, which picks the
+profile from the active workspace — a work-calendar hotkey must open the Roche
+account from any workspace. Because the profile is part of the window class, the
+same site under two accounts stays two windows, each focused by its own key.
+
+Note: `W`/`M` in this submap are WhatsApp/Maps; the vicinae system toggles that
+previously held those letters moved to `Shift+`-prefixed keys.
+
 ### Launcher System
 Uses `vicinae` as the primary application launcher:
 - Started as server: `vicinae server` in Hyprland exec-once
@@ -168,7 +188,12 @@ Uses TLP (not power-profiles-daemon) with aggressive battery optimization:
 - **Super+X**: Screenshot (selection)
 - **Print**: Screenshot (all monitors)
 - **Super+M**: Toggle laptop-only monitor mode
-- **Super+A**: AI assistant shortcut
+- **Super+A**: App / selector submap (launch-or-focus; second press focuses, never duplicates)
+  - `Y` YouTube · `W` WhatsApp · `T` Telegram · `P` Photos · `M` Maps (private Chrome profile)
+  - `C` Calendar · `G` Gmail · `D` Drive (Roche work Chrome profile)
+  - `S` Signal · `/` 1Password (native apps)
+  - `Shift+W` wifi · `Shift+A` audio · `Shift+B` bluetooth · `Shift+M` calendar agenda (vicinae)
+- **Super+J**: Toggle split of focused window, horizontal ↔ vertical (`Super+N` is an alias)
 - **Super+Escape**: Lock screen (hyprlock)
 
 ## Docker

@@ -282,7 +282,8 @@ hl.bind(mainMod .. " + down",  hl.dsp.focus({ direction = "down" }))
 hl.bind(mainMod .. " + H",     hl.dsp.focus({ direction = "left" }))
 hl.bind(mainMod .. " + L",     hl.dsp.focus({ direction = "right" }))
 hl.bind(mainMod .. " + K",     hl.dsp.focus({ direction = "up" }))
-hl.bind(mainMod .. " + J",     hl.dsp.focus({ direction = "down" }))
+-- (Super+J is the dwindle split toggle, see SUBMAPS section below; use
+--  Super+Down for focus-down.)
 hl.bind("ALT + Tab",           hl.dsp.focus({ direction = "down" }))
 
 -- Switch workspaces (custom toggle script) + move-window-silent, keys 1..0
@@ -327,20 +328,69 @@ hl.bind("F3", hl.dsp.workspace.toggle_special())
 hl.bind(mainMod .. " + CTRL + U", hl.dsp.window.move({ workspace = "special", follow = false }))
 hl.bind(mainMod .. " + U",        hl.dsp.workspace.toggle_special())
 
--- Toggle focused window split (dwindle)
+-- Toggle focused window split (dwindle): rearrange the split the window sits
+-- in, horizontal <-> vertical. Super+J is the primary key; Super+N kept as the
+-- historical alias.
+hl.bind(mainMod .. " + J", hl.dsp.layout("togglesplit"))
 hl.bind(mainMod .. " + N", hl.dsp.layout("togglesplit"))
 
 ----------------------------------------------------------------------
 -- SUBMAPS
 ----------------------------------------------------------------------
 
--- Rofi/vicinae selector submap (Super+A)
+-- App / selector submap (Super+A) --------------------------------------------
+-- One leader for "start a thing". Web apps run as Chrome --app windows via
+-- webapp.sh, native apps via launch-or-focus.sh; both focus an existing window
+-- instead of spawning a duplicate.
+-- The Chrome profile is PINNED per entry (resolved by email out of Chrome's
+-- Local State), deliberately unlike browser-launcher.sh which derives the
+-- profile from the active workspace -- a work calendar must open the Roche
+-- account from wherever it is pressed.
+-- The vicinae system toggles that used to sit on W/A/B/M moved to SHIFT+key,
+-- because W/M are now WhatsApp/Maps.
+local privateAcct = "ikeark@gmail.com"                 -- Profile 3
+local workAcct    = "andreas.schmid.as3@roche.com"     -- Profile 15 (Roche)
+
+local function submapExec(command)
+    return hl.dsp.exec_cmd([[hyprctl dispatch 'hl.dsp.submap("reset")' && ]] .. command)
+end
+
+local function webapp(account, url)
+    return submapExec(string.format("%s/webapp.sh '%s' '%s'", srcPath, account, url))
+end
+
+local function app(match, command)
+    return submapExec(string.format("%s/launch-or-focus.sh '%s' %s", srcPath, match, command))
+end
+
+local function vicinae(deeplink)
+    return submapExec(string.format('vicinae deeplink "%s"', deeplink))
+end
+
 hl.bind(mainMod .. " + A", hl.dsp.submap("rofiselect"))
 hl.define_submap("rofiselect", function()
-    hl.bind("W", hl.dsp.exec_cmd([[hyprctl dispatch 'hl.dsp.submap("reset")' && vicinae deeplink "vicinae://launch/@dagimg-dot/store.vicinae.wifi-commander/scan-wifi"]]))
-    hl.bind("A", hl.dsp.exec_cmd([[hyprctl dispatch 'hl.dsp.submap("reset")' && vicinae deeplink "vicinae://launch/@rastsislaux/store.vicinae.pulseaudio/pulseaudio"]]))
-    hl.bind("B", hl.dsp.exec_cmd([[hyprctl dispatch 'hl.dsp.submap("reset")' && vicinae deeplink "vicinae://launch/@Gelei/store.vicinae.bluetooth/scan"]]))
-    hl.bind("M", hl.dsp.exec_cmd([[hyprctl dispatch 'hl.dsp.submap("reset")' && vicinae deeplink "vicinae://launch/@kraeki/google-calendar/list-events"]]))
+    -- Web apps, private profile
+    hl.bind("Y", webapp(privateAcct, "https://youtube.com/"))
+    hl.bind("W", webapp(privateAcct, "https://web.whatsapp.com/"))
+    hl.bind("T", webapp(privateAcct, "https://web.telegram.org/a/"))
+    hl.bind("P", webapp(privateAcct, "https://photos.google.com/"))
+    hl.bind("M", webapp(privateAcct, "https://maps.google.com/"))
+
+    -- Web apps, work profile (Roche)
+    hl.bind("C", webapp(workAcct, "https://calendar.google.com/"))
+    hl.bind("G", webapp(workAcct, "https://mail.google.com/"))
+    hl.bind("D", webapp(workAcct, "https://drive.google.com/"))
+
+    -- Native apps
+    hl.bind("S",     app("signal", "signal-desktop"))
+    hl.bind("slash", app("1[Pp]assword", "1password"))
+
+    -- vicinae system toggles (moved to SHIFT, W/A/B/M are apps now)
+    hl.bind("SHIFT + W", vicinae("vicinae://launch/@dagimg-dot/store.vicinae.wifi-commander/scan-wifi"))
+    hl.bind("SHIFT + A", vicinae("vicinae://launch/@rastsislaux/store.vicinae.pulseaudio/pulseaudio"))
+    hl.bind("SHIFT + B", vicinae("vicinae://launch/@Gelei/store.vicinae.bluetooth/scan"))
+    hl.bind("SHIFT + M", vicinae("vicinae://launch/@kraeki/google-calendar/list-events"))
+
     hl.bind("escape", hl.dsp.submap("reset"))
 end)
 
