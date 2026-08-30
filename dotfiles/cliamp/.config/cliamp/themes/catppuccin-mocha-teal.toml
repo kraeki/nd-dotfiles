@@ -1,21 +1,33 @@
 # Catppuccin Mocha, re-accented to the teal this setup uses everywhere else
 # (GTK catppuccin-mocha-teal-standard, Catppuccin-Mocha-Teal cursor, Colloid
-# teal icons). cliamp ships a built-in "catppuccin" theme, but it accents with
-# Mocha blue (#89b4fa); this is the same palette with teal (#94e2d5) instead.
+# teal icons). cliamp ships a built-in "catppuccin" but accents it with Mocha
+# blue (#89b4fa).
 #
 # Selected via --start-theme in the Super+A -> Z bind (see hyprland.lua), so the
 # choice stays version-controlled without committing ~/.config/cliamp/config.toml
 # — cliamp also stores [spotify] client_secret and runtime state in that file.
 #
 # WARNING: cliamp takes everything after "=" as the value and validates it
-# against ^#[0-9a-fA-F]{6}$, so an INLINE comment (accent = "#94e2d5"  # teal)
+# against ^#[0-9a-fA-F]{6}$, so an INLINE comment (accent = "#389485"  # teal)
 # makes the whole theme fail to parse and vanish from `cliamp theme list` with
 # no error. Full-line comments like these are fine. Exactly these six keys.
 #
-# accent    = teal     (accent / highlight)
-# bright_fg = text     (primary foreground)
+# On "accent": cliamp uses it BOTH as teal text on the base AND as the fill of
+# the footer key chips (Esc / Space / Ctrl+K), which it labels in bright_fg.
+# Those two pull in opposite directions, so accent cannot be Catppuccin's real
+# teal #94e2d5: against bright_fg that is 1.03:1 and the chip labels vanish
+# (upstream's own #89b4fa is only 1.46:1 — the same bug, less severe).
+# #389485 is the compromise actually eyeballed against a render:
+#   as text on #1e1e2e  4.49:1   (AA for normal text)
+#   chip label on it    2.53:1   (legible: light glyphs on a saturated fill)
+# Perfectly balancing both caps out at 3.37:1 each (#2a7e6f), but that dims the
+# teal labels noticeably, and the chips read fine below 3:1. If you want the
+# chips crisper at the cost of duller labels, walk accent toward #2a7e6f.
+#
+# accent    = teal     (accent text, section rules, key-chip fill)
+# bright_fg = text     (primary foreground, and the key-chip labels)
 # fg        = overlay2 (dimmed foreground)
-accent    = "#94e2d5"
+accent    = "#389485"
 bright_fg = "#cdd6f4"
 fg        = "#9399b2"
 green     = "#a6e3a1"

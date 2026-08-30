@@ -186,7 +186,6 @@ monitor*, so `layer.opened` fires 3× while docked; each `hl.bind` handle is
 kept and `:unbind()`-ed individually on the last close. Unbinding by key would
 tear same-key binds out of the rest of the config.
 
-
 ### cliamp (music TUI)
 Winamp 2.x-styled terminal music player with built-in lo-fi radio
 ([cliamp.stream](https://www.cliamp.stream/)), in nixpkgs. Launched from the
@@ -205,9 +204,22 @@ via `cliamp --start-theme catppuccin-mocha-teal` — that keeps it
 version-controlled and reproducible on a fresh machine.
 
 cliamp ships a built-in `catppuccin`, but it accents with Mocha blue
-(`#89b4fa`); ours is the same palette re-accented to the teal used everywhere
-else (`#94e2d5`). A theme is exactly six keys — `accent`, `bright_fg`, `fg`,
-`green`, `yellow`, `red` — each `#RRGGBB`.
+(`#89b4fa`); ours is the same palette re-accented to teal. A theme is exactly
+six keys — `accent`, `bright_fg`, `fg`, `green`, `yellow`, `red` — each
+`#RRGGBB`.
+
+**`accent` cannot be Catppuccin's real teal `#94e2d5`.** cliamp uses `accent`
+for two opposing jobs: teal *text* on the base (wants light) **and** the fill
+of the footer key chips — `Esc` / `Space` / `Ctrl+K` — which it labels in
+`bright_fg` (wants dark). With `#94e2d5` the chip label is `#cdd6f4` on
+`#94e2d5`, i.e. **1.03:1**, and the shortcuts are invisible. Upstream's own
+`#89b4fa` is only 1.46:1, so this is an upstream design weakness, not something
+we introduced. We use `#389485`: 4.49:1 as text (AA), 2.53:1 for chip labels —
+below 3:1 on paper but legible in practice, since light glyphs on a saturated
+fill read better than the ratio suggests. Balancing both perfectly peaks at
+3.37:1 each (`#2a7e6f`), which visibly dulls the teal labels. Shift `accent`
+toward `#2a7e6f` for crisper chips, toward `#3fa694` for brighter labels — and
+**check a real render**, not just the numbers.
 
 **Gotcha:** cliamp treats everything after `=` as the value and validates it
 against `^#[0-9a-fA-F]{6}$`, so an **inline** comment
