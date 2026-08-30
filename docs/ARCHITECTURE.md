@@ -10,6 +10,14 @@ Omarchy's spirit, but declarative all the way down.
 > `configuration.nix` is split into `modules/nixos/` behind `nd.*` options,
 > `hosts/naptop` is a thin consumer, and `install.sh` bootstraps a fresh
 > machine. The paragraph below describes the starting point it replaced.
+>
+> **Phase 2 is done** — `.github/workflows/build.yml` evaluates the full
+> system on every push and pre-builds the custom packages (now flake
+> outputs: `waybar`, `handy`, `wayscriber`, `herdr`, `tldraw-offline`) for
+> Cachix; machines subscribe via `nd.cache.*`. One-time setup remains
+> yours: create the cache, set the repo's `CACHIX_CACHE` variable +
+> `CACHIX_AUTH_TOKEN` secret, and fill in `nd.cache.url`/`publicKey`
+> (steps in README).
 
 Originally the flake lived in `nixos-config/`, knew exactly one host, and
 mixed two different things in a 447-line `configuration.nix`: *hardware truth*

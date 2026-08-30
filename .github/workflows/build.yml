@@ -1,0 +1,62 @@
+# CI: validate the flake on every push/PR, and keep the binary cache warm.
+#
+# check  — evaluates the whole naptop system (what `nixos-rebuild` does before
+#          building), so a broken module or option fails here, not on the laptop.
+# cache  — builds the custom/compile-heavy packages (waybar override, Handy,
+#          wayscriber, herdr, tldraw-offline) and pushes them to Cachix, so
+#          `nixos-rebuild` on a machine downloads instead of compiling.
+#
+# The cache job needs one-time setup and is skipped until it's done:
+#   1. Create a cache at https://app.cachix.org
+#   2. Repo settings → Variables: CACHIX_CACHE = <cache name>
+#      Repo settings → Secrets:   CACHIX_AUTH_TOKEN = <auth token from cachix>
+#   3. Put the cache's URL + public key into nd.cache.* (modules/nixos/cache.nix)
+name: build
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: cachix/install-nix-action@v31
+        with:
+          extra_nix_config: |
+            experimental-features = nix-command flakes
+      - name: Evaluate the naptop system
+        run: nix build .#nixosConfigurations.naptop.config.system.build.toplevel --dry-run --fallback
+      - name: Evaluate the package outputs
+        run: |
+          nix eval .#packages.x86_64-linux --apply 'ps: builtins.mapAttrs (_: p: p.drvPath) ps'
+
+  cache:
+    # Only cache from main, and only once Cachix is configured (see header).
+    if: github.event_name != 'pull_request' && vars.CACHIX_CACHE != ''
+    needs: check
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: cachix/install-nix-action@v31
+        with:
+          extra_nix_config: |
+            experimental-features = nix-command flakes
+      - uses: cachix/cachix-action@v16
+        with:
+          name: ${{ vars.CACHIX_CACHE }}
+          authToken: ${{ secrets.CACHIX_AUTH_TOKEN }}
+      - name: Build and push custom packages
+        # cachix-action pushes everything built during the job on exit.
+        # Handy is the long pole (~1100 Rust crates) — after the first run
+        # it comes back out of this very cache in seconds.
+        run: |
+          nix build -L \
+            .#waybar \
+            .#herdr \
+            .#tldraw-offline \
+            .#wayscriber \
+            .#handy
