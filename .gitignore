@@ -1,1 +1,6 @@
 nvim/.config/nvim/lazy-lock.json
+
+# GTK bookmarks: machine-specific absolute paths, including work project
+# directories. Same inode as ~/.config/gtk-3.0/bookmarks via stow, so it cannot
+# be sanitised in the repo without changing the live file.
+dotfiles/gtk-look/.config/gtk-3.0/bookmarks
