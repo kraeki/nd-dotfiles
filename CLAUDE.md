@@ -4,7 +4,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Repository Overview
 
-This is a personal dotfiles repository for a NixOS system with Hyprland window manager. It uses GNU Stow for managing dotfiles and NixOS flakes for system configuration.
+This is a personal dotfiles repository for a NixOS system with Hyprland window manager. It uses GNU Stow for managing dotfiles and NixOS flakes for system configuration. The NixOS side is organized as a module library ("the distro") consumed by thin host configs — see `docs/ARCHITECTURE.md` for the roadmap.
 
 ## Repository Structure
 
@@ -13,12 +13,13 @@ The repository has two main configuration approaches:
 ### 1. Stow-Managed Dotfiles
 Application-specific dotfiles organized in the `dotfiles/` subdirectory (e.g., `dotfiles/hypr/`, `dotfiles/nvim/`, `dotfiles/waybar/`). Each directory contains the `.config/` hierarchy that gets symlinked to `$HOME` via Stow.
 
-### 2. NixOS Configuration
-The `nixos-config/` directory at repository root contains:
-- `flake.nix` - NixOS flake configuration for host "naptop"
-- `hosts/naptop/configuration.nix` - System-level packages and services
-- `home/kraeki/home.nix` - User-level packages managed by home-manager
-- `theme.nix` - Catppuccin Mocha theme configuration
+### 2. NixOS Configuration (flake at repository root)
+- `flake.nix` - Flake exporting `nixosModules.default`, `homeManagerModules.default`, and host "naptop"
+- `modules/nixos/` - The system profile behind `nd.*` options (core, desktop, theme, networking, power, docker, gaming, locale). Import + `nd.enable = true` turns everything on; individual modules can be toggled (`nd.gaming.enable = false;`)
+- `modules/home/` - Home-manager profile behind `nd.*` options (shell, chrome)
+- `hosts/naptop/` - This machine only: hardware config, boot/kernel quirks (Framework 16 AMD), its user account, `system.stateVersion`
+- `users/kraeki/home.nix` - Personal home config: packages, aliases, syncthing
+- `pkgs/` - Custom packages not in nixpkgs (herdr, tldraw-offline), used via `pkgs.callPackage`
 
 ## Common Commands
 
@@ -33,9 +34,8 @@ make delete
 
 ### NixOS System Management
 ```bash
-# Rebuild and switch to new NixOS configuration
-cd nixos-config
-sudo nixos-rebuild switch --flake .#naptop
+# Rebuild and switch to new NixOS configuration (from repo root)
+sudo nixos-rebuild switch --flake .#naptop     # or: make switch
 
 # Test configuration without switching
 sudo nixos-rebuild test --flake .#naptop
@@ -46,21 +46,25 @@ sudo nixos-rebuild build --flake .#naptop
 
 ### Flakes
 ```bash
-# Update all flake inputs
-cd nixos-config
+# Update all flake inputs (from repo root)
 nix flake update
 
 # Update specific input
 nix flake lock --update-input nixpkgs
 ```
 
+### Bootstrap a fresh machine
+```bash
+curl -sL https://raw.githubusercontent.com/kraeki/nd-dotfiles/main/install.sh | sh
+```
+
 ## Key Architecture Details
 
 ### Package Management Split
-- **System packages** (`environment.systemPackages` in `configuration.nix`): Core system tools, desktop environment components, CLI utilities
-- **User packages** (`home.packages` in `home.nix`): GUI applications, productivity tools, entertainment software
+- **System packages** (`environment.systemPackages` in `modules/nixos/*.nix`): Core system tools, desktop environment components, CLI utilities — each in the module it belongs to (host-specific hardware tools stay in `hosts/naptop/default.nix`)
+- **User packages** (`home.packages` in `users/kraeki/home.nix`): GUI applications, productivity tools, entertainment software
 
-This separation keeps system concerns distinct from user preferences and makes home-manager configuration portable.
+This separation keeps system concerns distinct from user preferences and makes home-manager configuration portable. When adding options, keep the discipline: identity-shaped config goes in `modules/` behind an `nd.*` option; only hardware truth and per-machine choices go in `hosts/`.
 
 ### Hyprland Configuration
 - Main config: `dotfiles/hypr/.config/hypr/hyprland.lua` (Hyprland 0.55+ Lua config)
@@ -372,7 +376,7 @@ Uses LazyVim as the base configuration:
 - Configuration modules in `lua/config/` and `lua/plugins/`
 
 ### Zsh Configuration
-- Managed by home-manager in `home.nix`
+- Managed by home-manager: shared setup in `modules/home/shell.nix`, personal aliases in `users/kraeki/home.nix`
 - Uses Oh-My-Zsh with Powerlevel10k theme
 - Plugins: zsh-autosuggestions, zsh-syntax-highlighting, git, per-directory-history
 - Shell configuration: `.zshrc.stow` (symlinked via Stow)
@@ -384,7 +388,7 @@ Uses LazyVim as the base configuration:
   - `nc` → Edit NixOS config
 
 ### Theme System
-Catppuccin Mocha with teal accent:
+Catppuccin Mocha with teal accent, configurable via `nd.theme.flavor` / `nd.theme.accent` in `modules/nixos/theme.nix`:
 - GTK theme: `catppuccin-mocha-teal-standard`
 - Icons: Colloid (teal), Numix Circle, Tela Circle Dracula
 - Cursor: Catppuccin Mocha Teal
@@ -401,13 +405,13 @@ Auto-started in Hyprland (`exec-once`):
 - `blueman-applet`, `nm-applet` - System tray
 
 ### Power Management
-Uses TLP (not power-profiles-daemon) with aggressive battery optimization:
-- USB autosuspend enabled
-- PCIe ASPM: powersupersave on battery
-- SATA ALPM: min_power on battery
-- CPU governor: powersave on battery with boost disabled
-- Battery charge thresholds: 75-80%
-- Platform profile: low-power on battery
+Uses power-profiles-daemon (not TLP — PPD is what AMD/Framework recommend for Ryzen 7040; TLP is explicitly disabled). Configured in `modules/nixos/power.nix`:
+- Laptop-mode sysctls (batched I/O, low swappiness, NMI watchdog off)
+- Zram (25%, zstd) as OOM safety net
+- upower thresholds: suspend at 5% battery
+- Clamshell docking: lid-close while docked does not suspend (Hyprland lid-switch binds handle the panel)
+- `amd_pstate=active` kernel param lives in `hosts/naptop` (hardware-specific)
+- Battery charge thresholds are set via `framework-tool`, not declaratively
 
 ## Common Keybindings
 

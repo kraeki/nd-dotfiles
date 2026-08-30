@@ -6,11 +6,16 @@ Omarchy's spirit, but declarative all the way down.
 
 ## 00 · Where it stands
 
-The flake lives in `nixos-config/`, knows exactly one host, and mixes two
-different things in a 447-line `configuration.nix`: *hardware truth* (amdgpu
-quirks, Framework modules, kernel params) and *identity* (Hyprland,
-Catppuccin, TLP policy, vicinae, espanso). Dotfiles are stow-managed beside
-it. It works — but nothing in it can be named, reused, installed by URL, or
+> **Phase 1 is done** — the flake lives at the repo root, the old monolithic
+> `configuration.nix` is split into `modules/nixos/` behind `nd.*` options,
+> `hosts/naptop` is a thin consumer, and `install.sh` bootstraps a fresh
+> machine. The paragraph below describes the starting point it replaced.
+
+Originally the flake lived in `nixos-config/`, knew exactly one host, and
+mixed two different things in a 447-line `configuration.nix`: *hardware truth*
+(amdgpu quirks, Framework modules, kernel params) and *identity* (Hyprland,
+Catppuccin, TLP policy, vicinae, espanso). Dotfiles were stow-managed beside
+it. It worked — but nothing in it could be named, reused, installed by URL, or
 handed to someone else. Everything below starts by separating those two
 things.
 
