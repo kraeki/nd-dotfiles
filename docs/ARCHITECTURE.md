@@ -11,6 +11,12 @@ Omarchy's spirit, but declarative all the way down.
 > `hosts/naptop` is a thin consumer, and `install.sh` bootstraps a fresh
 > machine. The paragraph below describes the starting point it replaced.
 >
+> **Phase 5 (branding) is done** — `branding/logo.svg` is the vector master
+> (terminal-window mark, teal + peach cursor). Plymouth boot splash renders
+> it at build time (`modules/nixos/branding.nix`, `nd.branding.enable`),
+> fastfetch greets with the ANSI mark, hyprlock carries a dim `nd ❯`, and a
+> subtle branded wallpaper joined the wpaperd rotation.
+>
 > **Phase 2 is done** — `.github/workflows/build.yml` evaluates the full
 > system on every push and pre-builds the custom packages (now flake
 > outputs: `waybar`, `handy`, `wayscriber`, `herdr`, `tldraw-offline`) for
