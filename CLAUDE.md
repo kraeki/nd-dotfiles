@@ -20,7 +20,7 @@ Application-specific dotfiles organized in the `dotfiles/` subdirectory (e.g., `
 - `overlays/` - Shared overlays (waybar Hyprland-IPC pin), used by both the desktop module and the flake's `packages` output
 - `.github/workflows/build.yml` - CI: evaluates the full system per push; builds + pushes the custom packages (`.#waybar`, `.#handy`, ...) to Cachix once `CACHIX_CACHE`/`CACHIX_AUTH_TOKEN` are configured
 - `modules/home/` - Home-manager profile behind `nd.*` options (shell, chrome)
-- `hosts/naptop/` - This machine only: hardware config, boot/kernel quirks (Framework 16 AMD), its user account, `system.stateVersion`
+- `hosts/naptop/` - This machine only: hardware config, boot/kernel quirks (Framework 16 AMD), its user account, `system.stateVersion`, and `disko.nix` (declarative disk layout for nixos-anywhere reinstalls — inert on the running system, see its mode notes)
 - `users/kraeki/home.nix` - Personal home config: packages, aliases, syncthing
 - `pkgs/` - Custom packages not in nixpkgs (herdr, tldraw-offline), used via `pkgs.callPackage`
 

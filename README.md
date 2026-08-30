@@ -48,6 +48,32 @@ make switch     # rebuild + switch NixOS (HOST=naptop by default)
 make upgrade    # update flake inputs, then rebuild + switch
 ```
 
+## Bare-metal reinstall (nixos-anywhere)
+
+`hosts/naptop/disko.nix` declares the disk layout (GPT, 1G ESP, LUKS2 →
+ext4, no swap). On the running system it is inert — current mounts stay
+governed by `hardware-configuration.nix`. To wipe and reinstall naptop from
+any other machine:
+
+1. In `hosts/naptop/disko.nix`: delete the `disko.enableConfig = false;`
+   line (disko then owns the mounts, with reinstall-stable paths).
+2. Replace the mounts in the hardware file with a mount-free scan — on the
+   target run `sudo nixos-generate-config --no-filesystems
+   --show-hardware-config`, put the output in
+   `hosts/naptop/hardware-configuration.nix`, commit.
+3. From the installing machine (target booted into any Linux with SSH root
+   access, e.g. the NixOS minimal ISO):
+
+   ```bash
+   printf '%s' 'your-luks-passphrase' > /tmp/luks.pass
+   nix run github:nix-community/nixos-anywhere -- \
+     --disk-encryption-keys /tmp/disk.key /tmp/luks.pass \
+     --flake .#naptop root@<target-ip>
+   ```
+
+It partitions per `disko.nix` (asking nothing), installs, and reboots into
+the full system. **This erases the disk** — the two-step flip is deliberate.
+
 ## CI & binary cache
 
 Every push runs `.github/workflows/build.yml`: the `check` job evaluates the

@@ -6,6 +6,10 @@
     home-manager.url = "github:nix-community/home-manager";
     home-manager.inputs.nixpkgs.follows = "nixpkgs";
     nixos-hardware.url = "github:NixOS/nixos-hardware";
+    # Declarative partitioning — drives bare-metal (re)installs via
+    # nixos-anywhere; layouts live in hosts/*/disko.nix.
+    disko.url = "github:nix-community/disko";
+    disko.inputs.nixpkgs.follows = "nixpkgs";
     wayscriber.url = "github:devmobasa/wayscriber";
     wayscriber.inputs.nixpkgs.follows = "nixpkgs";
     # Handy: offline speech-to-text. Pinned to the v0.9.4 release tag (not main)

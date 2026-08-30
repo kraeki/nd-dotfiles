@@ -8,6 +8,10 @@
     # Include the results of the hardware scan.
     ./hardware-configuration.nix
     inputs.nixos-hardware.nixosModules.framework-16-7040-amd
+    # Declarative disk layout for wipe-reinstalls (inert on the running
+    # system — see the mode notes in disko.nix).
+    inputs.disko.nixosModules.disko
+    ./disko.nix
   ];
 
   # The nd profile (modules/nixos), whole thing on.
