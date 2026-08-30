@@ -15,7 +15,8 @@ Application-specific dotfiles organized in the `dotfiles/` subdirectory (e.g., `
 
 ### 2. NixOS Configuration (flake at repository root)
 - `flake.nix` - Flake exporting `nixosModules.default`, `homeManagerModules.default`, and host "naptop"
-- `modules/nixos/` - The system profile behind `nd.*` options (core, desktop, theme, networking, power, docker, gaming, locale, cache). Import + `nd.enable = true` turns everything on; individual modules can be toggled (`nd.gaming.enable = false;`)
+- `modules/nixos/` - The system profile behind `nd.*` options (core, desktop, theme, networking, power, docker, gaming, locale, cache, branding). Import + `nd.enable = true` turns everything on; individual modules can be toggled (`nd.gaming.enable = false;`)
+- `branding/` - The nd mark (`logo.svg` vector master + README). Surfaces: Plymouth boot splash (rendered at build time), fastfetch greeting (`dotfiles/fastfetch/`), hyprlock label, branded wallpaper
 - `overlays/` - Shared overlays (waybar Hyprland-IPC pin), used by both the desktop module and the flake's `packages` output
 - `.github/workflows/build.yml` - CI: evaluates the full system per push; builds + pushes the custom packages (`.#waybar`, `.#handy`, ...) to Cachix once `CACHIX_CACHE`/`CACHIX_AUTH_TOKEN` are configured
 - `modules/home/` - Home-manager profile behind `nd.*` options (shell, chrome)

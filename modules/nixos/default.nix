@@ -9,6 +9,7 @@
 
 {
   imports = [
+    ./branding.nix
     ./cache.nix
     ./core.nix
     ./desktop.nix

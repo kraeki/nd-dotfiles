@@ -1,0 +1,12 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 256 256" width="256" height="256">
+  <!-- nd·os mark: a terminal window with a prompt. Catppuccin Mocha teal
+       (#94e2d5) frame + chevron, peach (#fab387) cursor. Vector master for
+       every branding surface — Plymouth renders it via rsvg-convert at
+       system build time (modules/nixos/branding.nix), the wallpaper and
+       fastfetch/hyprlock marks are derived from the same geometry. -->
+  <g fill="none" stroke="#94e2d5" stroke-width="16" stroke-linecap="round" stroke-linejoin="round">
+    <rect x="28" y="44" width="200" height="168" rx="28"/>
+    <polyline points="76,100 112,128 76,156"/>
+  </g>
+  <rect x="132" y="112" width="20" height="36" rx="5" fill="#fab387"/>
+</svg>
