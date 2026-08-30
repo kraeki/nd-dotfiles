@@ -39,6 +39,28 @@ make switch     # rebuild + switch NixOS (HOST=naptop by default)
 make upgrade    # update flake inputs, then rebuild + switch
 ```
 
+## CI & binary cache
+
+Every push runs `.github/workflows/build.yml`: the `check` job evaluates the
+whole naptop system (a broken module fails in CI, not on the laptop), and the
+`cache` job builds the custom packages — the waybar override, Handy
+(~1,100 Rust crates), wayscriber, herdr, tldraw-offline — and pushes them to
+Cachix so `nixos-rebuild` downloads instead of compiling.
+
+The cache job stays skipped until one-time setup:
+
+1. Create a cache at [app.cachix.org](https://app.cachix.org)
+2. Repo settings → **Variables**: `CACHIX_CACHE` = the cache name;
+   **Secrets**: `CACHIX_AUTH_TOKEN` = an auth token for it
+3. Point the machines at it in `hosts/*`:
+
+   ```nix
+   nd.cache.url = "https://<name>.cachix.org";
+   nd.cache.publicKey = "<name>.cachix.org-1:...";   # from the cache page
+   ```
+
+The packages are also directly buildable: `nix build .#waybar`, `.#handy`, …
+
 ## Extending
 
 The flake exports the system as a library: import `nixosModules.default`

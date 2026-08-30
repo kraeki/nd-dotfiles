@@ -9,6 +9,7 @@
 
 {
   imports = [
+    ./cache.nix
     ./core.nix
     ./desktop.nix
     ./docker.nix

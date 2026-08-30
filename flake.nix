@@ -19,15 +19,38 @@
     handy.url = "github:cjpais/Handy/v0.9.4";
   };
 
-  outputs = { self, nixpkgs, home-manager, ... } @ inputs: {
+  outputs = { self, nixpkgs, home-manager, ... } @ inputs:
+    let
+      system = "x86_64-linux";
+      pkgs = import nixpkgs {
+        inherit system;
+        overlays = [ (import ./overlays/waybar.nix) ];
+      };
+    in {
     # The distro as a library: import these from your own flake, set
     # `nd.enable = true`, and toggle individual `nd.*` options.
     nixosModules.default = import ./modules/nixos;
     homeManagerModules.default = import ./modules/home;
 
+    overlays.waybar = import ./overlays/waybar.nix;
+
+    # The custom/compile-heavy derivations, exposed so CI can pre-build and
+    # push them to the binary cache (see .github/workflows/build.yml and
+    # modules/nixos/cache.nix). These are the exact derivations the system
+    # and home configs use — wayscriber/handy mirror users/kraeki/home.nix.
+    packages.${system} = {
+      waybar = pkgs.waybar;
+      herdr = pkgs.callPackage ./pkgs/herdr.nix { };
+      tldraw-offline = pkgs.callPackage ./pkgs/tldraw-offline.nix { };
+      wayscriber = inputs.wayscriber.packages.${system}.default.overrideAttrs (_: {
+        doCheck = false;
+      });
+      handy = inputs.handy.packages.${system}.default;
+    };
+
     nixosConfigurations = {
       "naptop" = nixpkgs.lib.nixosSystem {
-        system = "x86_64-linux";
+        inherit system;
         specialArgs = { inherit inputs; };
         modules = [
           home-manager.nixosModules.home-manager
