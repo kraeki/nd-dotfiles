@@ -11,6 +11,13 @@ Omarchy's spirit, but declarative all the way down.
 > `hosts/naptop` is a thin consumer, and `install.sh` bootstraps a fresh
 > machine. The paragraph below describes the starting point it replaced.
 >
+> **Phase 3 (disko + nixos-anywhere) is done** — `hosts/naptop/disko.nix`
+> declares the layout (GPT, ESP, LUKS2 → ext4) mirrored from the live
+> hardware scan; inert on the running system (`disko.enableConfig = false`,
+> verified derivation-identical) and flipped on deliberately for a
+> wipe-reinstall. The README documents the nixos-anywhere flow, including
+> LUKS key handoff.
+>
 > **Phase 7 (template + docs) is done** — `nix flake init -t
 > github:kraeki/nd-dotfiles` scaffolds a consumer flake (skeleton host,
 > home.nix, README) that imports the nd modules; verified end-to-end by
