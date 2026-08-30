@@ -48,17 +48,21 @@
       handy = inputs.handy.packages.${system}.default;
     };
 
-    nixosConfigurations = {
-      "naptop" = nixpkgs.lib.nixosSystem {
+    # Every directory under hosts/ is a machine. install.sh relies on this:
+    # a new machine gets a generated hosts/<name>/ (hardware probe + thin
+    # default.nix) and is immediately buildable — no flake edit needed.
+    nixosConfigurations = nixpkgs.lib.mapAttrs
+      (name: _: nixpkgs.lib.nixosSystem {
         inherit system;
         specialArgs = { inherit inputs; };
         modules = [
           home-manager.nixosModules.home-manager
           self.nixosModules.default
-          ./hosts/naptop
+          (./hosts + "/${name}")
           { nixpkgs.config.allowUnfree = true; }
         ];
-      };
-    };
+      })
+      (nixpkgs.lib.filterAttrs (_: type: type == "directory")
+        (builtins.readDir ./hosts));
   };
 }
