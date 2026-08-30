@@ -1,0 +1,23 @@
+# Catppuccin Mocha, re-accented to the teal this setup uses everywhere else
+# (GTK catppuccin-mocha-teal-standard, Catppuccin-Mocha-Teal cursor, Colloid
+# teal icons). cliamp ships a built-in "catppuccin" theme, but it accents with
+# Mocha blue (#89b4fa); this is the same palette with teal (#94e2d5) instead.
+#
+# Selected via --start-theme in the Super+A -> Z bind (see hyprland.lua), so the
+# choice stays version-controlled without committing ~/.config/cliamp/config.toml
+# — cliamp also stores [spotify] client_secret and runtime state in that file.
+#
+# WARNING: cliamp takes everything after "=" as the value and validates it
+# against ^#[0-9a-fA-F]{6}$, so an INLINE comment (accent = "#94e2d5"  # teal)
+# makes the whole theme fail to parse and vanish from `cliamp theme list` with
+# no error. Full-line comments like these are fine. Exactly these six keys.
+#
+# accent    = teal     (accent / highlight)
+# bright_fg = text     (primary foreground)
+# fg        = overlay2 (dimmed foreground)
+accent    = "#94e2d5"
+bright_fg = "#cdd6f4"
+fg        = "#9399b2"
+green     = "#a6e3a1"
+yellow    = "#f9e2af"
+red       = "#f38ba8"

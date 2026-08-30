@@ -234,12 +234,17 @@ hl.bind("XF86MonBrightnessUp",   hl.dsp.exec_cmd(srcPath .. "/brightnesscontrol.
 hl.bind("XF86MonBrightnessDown", hl.dsp.exec_cmd(srcPath .. "/brightnesscontrol.sh d"), { locked = true, repeating = true })
 
 -- Screenshot / screencapture  (ported from Omarchy 4)
--- Everything lives on Print, the way Omarchy lays it out. The old three-mode
--- split (Super+X region / Super+ALT+P monitor / Print all) is gone: capture-
--- region.sh's "smart" mode does all of it from one key — drag for a freeform
--- region, single-click to snap to the window or monitor under the cursor.
--- Shots auto-save to ~/obsidian/Files AND land on the clipboard, with a
--- clickable notification that opens swappy. Super+X is now universal cut.
+-- The old three-mode split (Super+X region / Super+ALT+P monitor / Print all)
+-- is gone: capture-region.sh's "smart" mode does all of it from one key — drag
+-- for a freeform region, single-click to snap to the window or monitor under
+-- the cursor. Shots auto-save to ~/obsidian/Files AND land on the clipboard,
+-- with a clickable notification that opens swappy.
+--
+-- Super+X keeps its long-standing screenshot muscle memory, so it is bound here
+-- ALONGSIDE Omarchy's Print. That deliberately costs the universal cut, which
+-- upstream puts on Super+X — no loss, since "cut" was the one member of the
+-- copy/paste trio with no terminal meaning, and Super+C/Super+V still work.
+hl.bind(mainMod .. " + X",          hl.dsp.exec_cmd(srcPath .. "/capture-screenshot.sh"))
 hl.bind("Print",                    hl.dsp.exec_cmd(srcPath .. "/capture-screenshot.sh"))
 hl.bind("ALT + Print",              hl.dsp.exec_cmd(srcPath .. "/capture-screenrecording.sh --stop-recording || " .. srcPath .. "/capture-screenrecording.sh"))
 hl.bind(mainMod .. " + Print",      hl.dsp.exec_cmd("pkill hyprpicker || hyprpicker -a"))
@@ -381,7 +386,8 @@ end
 -- correct for ghostty, foot, alacritty and wezterm.
 hl.bind(mainMod .. " + C", universalClipboard("CTRL", "C", "CTRL SHIFT", "C"), { description = "Universal copy" })
 hl.bind(mainMod .. " + V", universalClipboard("CTRL", "V", "CTRL SHIFT", "V"), { description = "Universal paste" })
-hl.bind(mainMod .. " + X", sendShortcutOnce("CTRL", "X"),                      { description = "Universal cut" })
+-- No universal cut: Omarchy's Super+X is the screenshot key here (see the
+-- SCREENSHOT block above). sendShortcutOnce is still used by both binds above.
 
 -- Custom scripts
 -- cliphist moved off Super+V (now universal paste) to Super+Ctrl+V — the slot
@@ -507,7 +513,11 @@ hl.define_submap("rofiselect", function()
     -- runs as a kitty window under its OWN class so launch-or-focus.sh can find
     -- it again — that class is also in `terminalClasses` above, so universal
     -- copy/paste treats it as the terminal it is.
-    hl.bind("Z",     app("cliamp", "kitty --class cliamp -e cliamp"))
+    -- --start-theme pins the theme HERE rather than in ~/.config/cliamp/config.toml,
+    -- because cliamp also writes [spotify] client_secret and runtime state into
+    -- that file, so it must stay out of the repo. Only the theme definition is
+    -- stowed (dotfiles/cliamp/.config/cliamp/themes/).
+    hl.bind("Z",     app("cliamp", "kitty --class cliamp -e cliamp --start-theme catppuccin-mocha-teal"))
 
     -- vicinae system toggles (moved to SHIFT, W/A/B/M are apps now)
     hl.bind("SHIFT + W", vicinae("vicinae://launch/@dagimg-dot/store.vicinae.wifi-commander/scan-wifi"))

@@ -115,8 +115,8 @@ Note: `W`/`M` in this submap are WhatsApp/Maps; the vicinae system toggles that
 previously held those letters moved to `Shift+`-prefixed keys.
 
 ### Universal Copy/Paste (ported from Omarchy 4)
-`Super+C` / `Super+V` / `Super+X` copy/paste/cut in **every** app, so the
-terminal stops being the odd one out. Implemented in the UNIVERSAL COPY/PASTE
+`Super+C` / `Super+V` copy and paste in **every** app, so the terminal stops
+being the odd one out. Implemented in the UNIVERSAL COPY/PASTE
 block of `hyprland.lua`, ported from Omarchy's `bindings/clipboard.lua`:
 - The chord is re-sent with `hl.dsp.send_key_state` and **no window target**, so
   it reaches layer-shell surfaces (rofi, vicinae) as well as normal windows.
@@ -136,15 +136,18 @@ block of `hyprland.lua`, ported from Omarchy's `bindings/clipboard.lua`:
   `kitty_mod` defaults to `ctrl+shift`, making `ctrl+shift+c/v` the real
   clipboard binds; the same pair is correct for ghostty, foot, alacritty and
   wezterm.
-- `Super+X` (cut) has **no terminal branch** — it sends plain `Ctrl+X`
-  everywhere, as Omarchy does. In a terminal that reaches the running program
-  (nano's exit, emacs' prefix key), since "cut" has no terminal meaning.
+- **There is no universal cut.** Omarchy puts it on `Super+X`, but that key
+  keeps its long-standing screenshot binding here (see Screen Capture below).
+  Little is lost: "cut" was the one member of the trio with no terminal
+  meaning, and upstream sends it with no terminal branch, so in a terminal it
+  just leaks `Ctrl+X` to the running program (nano's exit, emacs' prefix).
 
 cliphist moved to `Super+Ctrl+V` (Omarchy's slot for its clipboard manager);
 the `wl-paste --watch` daemons in `exec-once` still feed it.
 
 ### Screen Capture (ported from Omarchy 4)
-Everything lives on `Print`. Scripts in `dotfiles/hypr/.local/share/bin/`:
+`Super+X` and `Print` both open the picker; the other capture modes sit on
+`Print` modifiers. Scripts in `dotfiles/hypr/.local/share/bin/`:
 - `capture-region.sh` — the picker, shared by screenshots and recording. Freezes
   the screen with `hyprpicker -r -z` so nothing shifts during teardown, then
   runs `slurp`. Its **"smart" mode** replaced the old three-mode split
@@ -163,7 +166,18 @@ Everything lives on `Print`. Scripts in `dotfiles/hypr/.local/share/bin/`:
   the `cap_sys_admin` wrapper the kms backend needs — a bare systemPackages
   entry is not enough.
 - `notification-send.sh` — the slice of `omarchy-notification-send` these need
-  (thumbnail + clickable action), backed by `dunstify`.
+  (thumbnail + clickable action), backed by `dunstify`. `dunstify -A` blocks
+  while the notification is up, so the click handler is detached; without an
+  action it is fire-and-forget.
+
+For the click to do anything, `dunstrc` needs `mouse_left_click = do_action`.
+Dunst's default puts `do_action` on **middle** click and gives left click
+`context`, which opens a dmenu — so left-clicking a screenshot notification
+just dismissed it. (`context` could never have worked here anyway: `dmenu` and
+`browser` pointed at `/usr/bin/…`, which does not exist on NixOS. Both now
+point at `/run/current-system/sw/bin/`.) Note dunst will not restart while
+another instance holds the `org.freedesktop.Notifications` bus name — the
+second one exits silently — so apply config changes with `dunstctl reload`.
 
 While the picker is open, `hyprland.lua` registers keyboard binds scoped to
 slurp's layer surface (`Enter` window, `Ctrl+Enter` fullscreen, `Tab`/arrows to
@@ -172,6 +186,34 @@ monitor*, so `layer.opened` fires 3× while docked; each `hl.bind` handle is
 kept and `:unbind()`-ed individually on the last close. Unbinding by key would
 tear same-key binds out of the rest of the config.
 
+
+### cliamp (music TUI)
+Winamp 2.x-styled terminal music player with built-in lo-fi radio
+([cliamp.stream](https://www.cliamp.stream/)), in nixpkgs. Launched from the
+`Super+A` submap on `Z` as a kitty window under its own class, so
+`launch-or-focus.sh` focuses it rather than opening a second one.
+
+Only the **theme** is stowed —
+`dotfiles/cliamp/.config/cliamp/themes/catppuccin-mocha-teal.toml`. Everything
+else in `~/.config/cliamp/` is deliberately unmanaged: `config.toml` is where
+cliamp persists runtime state **and `[spotify] client_secret`**, so it must not
+go in the repo, and the directory also holds a socket, pidfile and log. Stow
+therefore links only the `themes/` subdirectory.
+
+Because `config.toml` is unmanaged, the theme *choice* is pinned in the keybind
+via `cliamp --start-theme catppuccin-mocha-teal` — that keeps it
+version-controlled and reproducible on a fresh machine.
+
+cliamp ships a built-in `catppuccin`, but it accents with Mocha blue
+(`#89b4fa`); ours is the same palette re-accented to the teal used everywhere
+else (`#94e2d5`). A theme is exactly six keys — `accent`, `bright_fg`, `fg`,
+`green`, `yellow`, `red` — each `#RRGGBB`.
+
+**Gotcha:** cliamp treats everything after `=` as the value and validates it
+against `^#[0-9a-fA-F]{6}$`, so an **inline** comment
+(`accent = "#94e2d5"  # teal`) makes the whole theme fail to parse and silently
+disappear from `cliamp theme list` — no error, it is just gone. Full-line
+comments are fine. Verify a theme edit with `cliamp theme list` before trusting it.
 
 ### Launcher System
 Uses `vicinae` as the primary application launcher:
@@ -244,9 +286,9 @@ Uses TLP (not power-profiles-daemon) with aggressive battery optimization:
 - **Super+Shift+E**: File explorer (rofi)
 - **Super+Q**: Close window
 - **Super+F**: Fullscreen
-- **Super+C / Super+V / Super+X**: Universal copy / paste / cut (see below)
+- **Super+C / Super+V**: Universal copy / paste (see below)
 - **Super+Ctrl+V**: Clipboard history (rofi + cliphist)
-- **Print**: Screenshot — smart picker (see below)
+- **Super+X** / **Print**: Screenshot — smart picker (see below)
 - **Alt+Print**: Screen recording (start / stop toggle)
 - **Super+Print**: Color picker (hyprpicker)
 - **Super+Ctrl+Print**: Extract text from a region (OCR)
