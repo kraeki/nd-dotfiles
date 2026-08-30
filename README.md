@@ -72,9 +72,19 @@ The packages are also directly buildable: `nix build .#waybar`, `.#handy`, …
 
 ## Extending
 
-The flake exports the system as a library: import `nixosModules.default`
-(and `homeManagerModules.default` on the home-manager side), set
-`nd.enable = true`, then toggle what you don't want:
+The flake exports the system as a library — no fork needed. Scaffold your own
+consumer flake:
+
+```bash
+mkdir my-machines && cd my-machines
+nix flake init -t github:kraeki/nd-dotfiles
+```
+
+You get a flake that imports `nixosModules.default` +
+`homeManagerModules.default`, a skeleton host, and a README with the three
+setup steps (rename, drop in your `nixos-generate-config` output, rebuild).
+Your customizations live in *your* repo; `nix flake update` pulls nd updates.
+Everything sits behind `nd.*` options, so you toggle instead of patching:
 
 ```nix
 nd.enable = true;
