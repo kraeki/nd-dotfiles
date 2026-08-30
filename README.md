@@ -24,11 +24,20 @@ On an existing NixOS machine, no clone needed:
 sudo nixos-rebuild switch --flake github:kraeki/nd-dotfiles#naptop
 ```
 
-Or bootstrap everything (clone + dotfile symlinks + rebuild):
+Or bootstrap everything (clone + dotfile symlinks + rebuild) with the
+interactive installer:
 
 ```bash
-curl -sL https://raw.githubusercontent.com/kraeki/nd-dotfiles/main/install.sh | sh
+curl -sL https://raw.githubusercontent.com/kraeki/nd-dotfiles/main/install.sh | bash
 ```
+
+It asks which machine this is. Picking an existing host applies that config;
+picking **new machine** probes the hardware (`nixos-generate-config`), asks
+for hostname/username, and generates a thin `hosts/<name>/` on top of the nd
+profile plus a starter `users/<name>/home.nix` — the flake discovers every
+directory under `hosts/` automatically, so the new machine is immediately
+buildable. Hardware truth stays per-host; the modules are hardware-agnostic.
+Set `ND_HOST=<host>` for a prompt-free install.
 
 ## Day-to-day
 

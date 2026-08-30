@@ -57,8 +57,9 @@ nix flake lock --update-input nixpkgs
 
 ### Bootstrap a fresh machine
 ```bash
-curl -sL https://raw.githubusercontent.com/kraeki/nd-dotfiles/main/install.sh | sh
+curl -sL https://raw.githubusercontent.com/kraeki/nd-dotfiles/main/install.sh | bash
 ```
+Interactive (gum): pick an existing host, or "new machine" to probe hardware via `nixos-generate-config` and generate `hosts/<name>/` + `users/<name>/home.nix`. The flake auto-discovers every directory under `hosts/`, so new hosts need no flake edit. `ND_HOST=<host>` skips prompts.
 
 ## Key Architecture Details
 
