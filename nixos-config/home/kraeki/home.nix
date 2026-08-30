@@ -1,16 +1,16 @@
 { config, pkgs, inputs, ... }:
 
 let
-  # herdr: terminal agent-multiplexer (github.com/ogulcancelik/herdr).
+  # herdr: terminal agent-multiplexer (github.com/herdrdev/herdr).
   # Not in nixpkgs; upstream ships a prebuilt Linux binary that we patchelf
   # onto the NixOS dynamic loader. Bump `version` + `hash` on updates
   # (nix store prefetch-file <url>).
   herdr = pkgs.stdenv.mkDerivation rec {
     pname = "herdr";
-    version = "0.7.4";
+    version = "0.8.2";
     src = pkgs.fetchurl {
-      url = "https://github.com/ogulcancelik/herdr/releases/download/v${version}/herdr-linux-x86_64";
-      hash = "sha256-vA/ALUulAPnKwjU6Q+Z/4DZ4Xsym61U3jgUPrDwQMFk=";
+      url = "https://github.com/herdrdev/herdr/releases/download/v${version}/herdr-linux-x86_64";
+      hash = "sha256-l2FQoU1JDJSyQ+ouGn6y37Z/EuNrGC25CTb2co5q7PQ=";
     };
     dontUnpack = true;
     nativeBuildInputs = [ pkgs.autoPatchelfHook ];
@@ -63,6 +63,11 @@ in
   home.homeDirectory = "/home/kraeki";
   home.stateVersion = "23.11";
 
+  # `uv tool install <pkg>` drops standalone shims here (they embed their own
+  # venv python, so uv itself isn't needed at runtime). Holds the `graphify`
+  # knowledge-graph CLI backing the /graphify Claude Code skill.
+  home.sessionPath = [ "$HOME/.local/bin" ];
+
   programs.home-manager.enable = true;
 
   programs.zsh = {
@@ -72,6 +77,10 @@ in
       vi = "nvim";
       hc = "vi ~/.config/hypr";
       nc = "cd ~/work/nd-dotfiles/nixos-config; vi ./hosts/naptop/configuration.nix";
+      # Always start Claude Code in bypass-permissions mode.
+      # ~/.claude/settings.json already sets skipDangerousModePermissionPrompt,
+      # so this starts straight into the session without the confirmation screen.
+      claude = "claude --dangerously-skip-permissions";
     };
 
     oh-my-zsh = {
@@ -149,6 +158,9 @@ in
     lazydocker       # TUI for docker
     superfile        # TUI file manager (`spf`)
     python3          # Python runtime for LSPs and tools
+    uv               # Python package/tool manager; installs PyPI CLIs that
+                     # aren't in nixpkgs into ~/.local/bin (`uv tool install`).
+                     # Currently provides: graphify (see home.sessionPath below).
     glib             # Provides gio trash command
     ast-grep         # Structural search/replace
     ghostscript      # PDF rendering in neovim
