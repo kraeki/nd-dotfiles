@@ -74,7 +74,24 @@ any other machine:
 It partitions per `disko.nix` (asking nothing), installs, and reboots into
 the full system. **This erases the disk** — the two-step flip is deliberate.
 
-## CI & binary cache
+## The installer ISO
+
+```bash
+nix build .#iso     # → result/iso/nd-*.iso
+dd if=result/iso/nd-*.iso of=/dev/sdX bs=4M status=progress
+```
+
+Boot the stick and run `nd-install`: it connects wifi, authenticates to
+GitHub with a device-flow code (repo is private — confirm on your phone, no
+password typed on the target), clones the repo, and asks which machine this
+is. An existing host installs per its `disko.nix` (after the reinstall flip
+below); "new machine" probes the hardware, asks hostname/username/disk, and
+generates a disko-owned `hosts/<name>/`. Then: LUKS passphrase, one final
+ERASE confirmation, disko partitioning, `nixos-install`, user password,
+reboot. The repo lands in `~/work/nd-dotfiles` on the new system, generated
+host staged for commit.
+
+## Bare-metal reinstall (nixos-anywhere)
 
 Every push runs `.github/workflows/build.yml`: the `check` job evaluates the
 whole naptop system (a broken module fails in CI, not on the laptop), and the
