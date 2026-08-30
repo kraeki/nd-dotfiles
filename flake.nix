@@ -58,6 +58,9 @@
         doCheck = false;
       });
       handy = inputs.handy.packages.${system}.default;
+
+      # The installer ISO (nix build .#iso → result/iso/nd-*.iso).
+      iso = self.nixosConfigurations.iso.config.system.build.isoImage;
     };
 
     # Every directory under hosts/ is a machine. install.sh relies on this:
@@ -75,6 +78,14 @@
         ];
       })
       (nixpkgs.lib.filterAttrs (_: type: type == "directory")
-        (builtins.readDir ./hosts));
+        (builtins.readDir ./hosts))
+    // {
+      # The live installer image — not a host, so defined explicitly.
+      iso = nixpkgs.lib.nixosSystem {
+        inherit system;
+        specialArgs = { inherit inputs; };
+        modules = [ ./iso ];
+      };
+    };
   };
 }

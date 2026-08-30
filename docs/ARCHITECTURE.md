@@ -11,6 +11,14 @@ Omarchy's spirit, but declarative all the way down.
 > `hosts/naptop` is a thin consumer, and `install.sh` bootstraps a fresh
 > machine. The paragraph below describes the starting point it replaced.
 >
+> **Phase 6 (ISO installer) is done** — `nix build .#iso` produces the nd
+> live stick; `nd-install` runs wifi → GitHub device-flow auth (repo stays
+> private) → clone → host pick or new-machine probing (disko-owned) → LUKS
+> passphrase → ERASE confirmation → disko + nixos-install → reboot.
+> **Phase 4 (secrets) is deferred by decision** — the repo stays private
+> for now, so espanso/work files remain plain; revisit sops-nix if it ever
+> goes public.
+>
 > **Phase 3 (disko + nixos-anywhere) is done** — `hosts/naptop/disko.nix`
 > declares the layout (GPT, ESP, LUKS2 → ext4) mirrored from the live
 > hardware scan; inert on the running system (`disko.enableConfig = false`,
