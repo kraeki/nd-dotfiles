@@ -11,6 +11,13 @@ Omarchy's spirit, but declarative all the way down.
 > `hosts/naptop` is a thin consumer, and `install.sh` bootstraps a fresh
 > machine. The paragraph below describes the starting point it replaced.
 >
+> **Phase 7 (template + docs) is done** — `nix flake init -t
+> github:kraeki/nd-dotfiles` scaffolds a consumer flake (skeleton host,
+> home.nix, README) that imports the nd modules; verified end-to-end by
+> evaluating a scaffolded machine. Remaining phases (3 · disko, 4 · sops-nix,
+> 6 · ISO) are gated on owner input: the real disk layout, and the
+> public-vs-private secrets decision.
+>
 > **Phase 5 (branding) is done** — `branding/logo.svg` is the vector master
 > (terminal-window mark, teal + peach cursor). Plymouth boot splash renders
 > it at build time (`modules/nixos/branding.nix`, `nd.branding.enable`),

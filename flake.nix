@@ -34,6 +34,14 @@
 
     overlays.waybar = import ./overlays/waybar.nix;
 
+    # Scaffold for consumers: `nix flake init -t github:kraeki/nd-dotfiles`
+    # gives a flake that imports the nd modules — their machines, their repo,
+    # nd updates via `nix flake update`.
+    templates.default = {
+      path = ./templates/default;
+      description = "A NixOS flake consuming the nd system + home profile";
+    };
+
     # The custom/compile-heavy derivations, exposed so CI can pre-build and
     # push them to the binary cache (see .github/workflows/build.yml and
     # modules/nixos/cache.nix). These are the exact derivations the system
