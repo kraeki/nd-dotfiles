@@ -114,6 +114,65 @@ same site under two accounts stays two windows, each focused by its own key.
 Note: `W`/`M` in this submap are WhatsApp/Maps; the vicinae system toggles that
 previously held those letters moved to `Shift+`-prefixed keys.
 
+### Universal Copy/Paste (ported from Omarchy 4)
+`Super+C` / `Super+V` / `Super+X` copy/paste/cut in **every** app, so the
+terminal stops being the odd one out. Implemented in the UNIVERSAL COPY/PASTE
+block of `hyprland.lua`, ported from Omarchy's `bindings/clipboard.lua`:
+- The chord is re-sent with `hl.dsp.send_key_state` and **no window target**, so
+  it reaches layer-shell surfaces (rofi, vicinae) as well as normal windows.
+  `wtype` cannot do this — the physically-held Super merges into the injected
+  chord at the seat.
+- Sent as a **down/up pair split by a 50ms `hl.timer`**, working around
+  Hyprland leaving synthetic key state stuck/repeating (hyprwm/Hyprland#14099).
+- Terminals get `Ctrl+Shift+C` / `Ctrl+Shift+V` instead, since `Ctrl+C` there is
+  SIGINT. Omarchy detects terminals via its window tags; this config has none,
+  so `activeWindowIsTerminal()` matches `window.class` against
+  `terminalClasses` — **add new terminals to that list**.
+- **Do not "restore" Omarchy's `Ctrl+Insert` / `Shift+Insert` here.** Omarchy
+  ships foot; under kitty both are wrong: `ctrl+insert` is bound to nothing, so
+  kitty forwards it to the running program as the xterm sequence `CSI 2;5~`
+  (a stray `5~` appears in the shell), and `shift+insert` is
+  `paste_from_selection` — the PRIMARY selection, not the clipboard.
+  `kitty_mod` defaults to `ctrl+shift`, making `ctrl+shift+c/v` the real
+  clipboard binds; the same pair is correct for ghostty, foot, alacritty and
+  wezterm.
+- `Super+X` (cut) has **no terminal branch** — it sends plain `Ctrl+X`
+  everywhere, as Omarchy does. In a terminal that reaches the running program
+  (nano's exit, emacs' prefix key), since "cut" has no terminal meaning.
+
+cliphist moved to `Super+Ctrl+V` (Omarchy's slot for its clipboard manager);
+the `wl-paste --watch` daemons in `exec-once` still feed it.
+
+### Screen Capture (ported from Omarchy 4)
+Everything lives on `Print`. Scripts in `dotfiles/hypr/.local/share/bin/`:
+- `capture-region.sh` — the picker, shared by screenshots and recording. Freezes
+  the screen with `hyprpicker -r -z` so nothing shifts during teardown, then
+  runs `slurp`. Its **"smart" mode** replaced the old three-mode split
+  (`screenshot.sh sf|m|p`, deleted): drag for a freeform region, or single-click
+  to snap to the window/monitor under the cursor (a click is detected as an
+  area < 20px²).
+- `capture-screenshot.sh` — saves to `~/obsidian/Files` as
+  `YYMMDD_HHhMMmSSs_screenshot.png` **and** copies to the clipboard, then posts
+  a clickable notification that opens swappy. Forces `no_hardware_cursors=0`
+  around the grab, because software cursors get baked into grim's frames.
+- `capture-text.sh` (OCR, tesseract) / `capture-qr.sh` (zbar). The QR result is
+  `wl-copy --sensitive` — QR codes routinely carry secrets (otpauth:// URIs).
+- `capture-screenrecording.sh` — gpu-screen-recorder; same picker, start/stop
+  toggle. Trimmed vs upstream: **no webcam overlay, no bar indicator**.
+  `programs.gpu-screen-recorder.enable` in configuration.nix is what installs
+  the `cap_sys_admin` wrapper the kms backend needs — a bare systemPackages
+  entry is not enough.
+- `notification-send.sh` — the slice of `omarchy-notification-send` these need
+  (thumbnail + clickable action), backed by `dunstify`.
+
+While the picker is open, `hyprland.lua` registers keyboard binds scoped to
+slurp's layer surface (`Enter` window, `Ctrl+Enter` fullscreen, `Tab`/arrows to
+walk windows). They are **ref-counted**: slurp opens one `selection` layer *per
+monitor*, so `layer.opened` fires 3× while docked; each `hl.bind` handle is
+kept and `:unbind()`-ed individually on the last close. Unbinding by key would
+tear same-key binds out of the rest of the config.
+
+
 ### Launcher System
 Uses `vicinae` as the primary application launcher:
 - Started as server: `vicinae server` in Hyprland exec-once
@@ -185,13 +244,19 @@ Uses TLP (not power-profiles-daemon) with aggressive battery optimization:
 - **Super+Shift+E**: File explorer (rofi)
 - **Super+Q**: Close window
 - **Super+F**: Fullscreen
-- **Super+X**: Screenshot (selection)
-- **Print**: Screenshot (all monitors)
+- **Super+C / Super+V / Super+X**: Universal copy / paste / cut (see below)
+- **Super+Ctrl+V**: Clipboard history (rofi + cliphist)
+- **Print**: Screenshot — smart picker (see below)
+- **Alt+Print**: Screen recording (start / stop toggle)
+- **Super+Print**: Color picker (hyprpicker)
+- **Super+Ctrl+Print**: Extract text from a region (OCR)
+- **Super+Shift+Print**: Decode a QR code from a region
 - **Super+M**: Toggle laptop-only monitor mode
 - **Super+A**: App / selector submap (launch-or-focus; second press focuses, never duplicates)
   - `Y` YouTube · `W` WhatsApp · `T` Telegram · `P` Photos · `M` Maps (private Chrome profile)
   - `C` Calendar · `G` Gmail · `D` Drive (Roche work Chrome profile)
   - `S` Signal · `/` 1Password (native apps)
+  - `Z` cliamp, the Winamp-styled music TUI (kitty under its own class)
   - `Shift+W` wifi · `Shift+A` audio · `Shift+B` bluetooth · `Shift+M` calendar agenda (vicinae)
 - **Super+J**: Toggle split of focused window, horizontal ↔ vertical (`Super+N` is an alias)
 - **Super+Escape**: Lock screen (hyprlock)

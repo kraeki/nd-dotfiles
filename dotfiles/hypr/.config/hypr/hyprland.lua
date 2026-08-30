@@ -233,10 +233,56 @@ hl.bind("XF86AudioPrev",  hl.dsp.exec_cmd("playerctl previous"),   { locked = tr
 hl.bind("XF86MonBrightnessUp",   hl.dsp.exec_cmd(srcPath .. "/brightnesscontrol.sh i"), { locked = true, repeating = true })
 hl.bind("XF86MonBrightnessDown", hl.dsp.exec_cmd(srcPath .. "/brightnesscontrol.sh d"), { locked = true, repeating = true })
 
--- Screenshot / screencapture
-hl.bind(mainMod .. " + X",       hl.dsp.exec_cmd(srcPath .. "/screenshot.sh sf"))
-hl.bind(mainMod .. " + ALT + P", hl.dsp.exec_cmd(srcPath .. "/screenshot.sh m"))
-hl.bind("Print",                 hl.dsp.exec_cmd(srcPath .. "/screenshot.sh p"))
+-- Screenshot / screencapture  (ported from Omarchy 4)
+-- Everything lives on Print, the way Omarchy lays it out. The old three-mode
+-- split (Super+X region / Super+ALT+P monitor / Print all) is gone: capture-
+-- region.sh's "smart" mode does all of it from one key — drag for a freeform
+-- region, single-click to snap to the window or monitor under the cursor.
+-- Shots auto-save to ~/obsidian/Files AND land on the clipboard, with a
+-- clickable notification that opens swappy. Super+X is now universal cut.
+hl.bind("Print",                    hl.dsp.exec_cmd(srcPath .. "/capture-screenshot.sh"))
+hl.bind("ALT + Print",              hl.dsp.exec_cmd(srcPath .. "/capture-screenrecording.sh --stop-recording || " .. srcPath .. "/capture-screenrecording.sh"))
+hl.bind(mainMod .. " + Print",      hl.dsp.exec_cmd("pkill hyprpicker || hyprpicker -a"))
+hl.bind(mainMod .. " + CTRL + Print", hl.dsp.exec_cmd(srcPath .. "/capture-text.sh"))
+hl.bind(mainMod .. " + SHIFT + Print", hl.dsp.exec_cmd(srcPath .. "/capture-qr.sh"))
+
+-- Keyboard control for the slurp region picker (see capture-region.sh).
+-- The binds live exactly as long as a selection layer is on screen (slurp opens
+-- one per monitor), so they cannot leak or get stuck. Unbinding by key would
+-- take a same-key binding out of the rest of this config with it, so each
+-- handle is kept and removed individually.
+local selectionLayers = 0
+local selectionBinds  = {}
+
+hl.on("layer.opened", function(layer)
+    if layer.namespace ~= "selection" then return end
+    selectionLayers = selectionLayers + 1
+    if selectionLayers ~= 1 then return end
+
+    selectionBinds = {
+        hl.bind("RETURN",        hl.dsp.exec_cmd(srcPath .. "/capture-region.sh --take-window"),          { description = "Capture highlighted window" }),
+        hl.bind("CTRL + RETURN", hl.dsp.exec_cmd(srcPath .. "/capture-region.sh --take-fullscreen"),      { description = "Capture entire screen" }),
+        hl.bind("TAB",           hl.dsp.exec_cmd(srcPath .. "/capture-region.sh --select-window next"),   { description = "Select next window to capture" }),
+        hl.bind("CTRL + TAB",    hl.dsp.exec_cmd(srcPath .. "/capture-region.sh --select-window prev"),   { description = "Select previous window to capture" }),
+    }
+    for _, direction in ipairs({ "left", "right", "up", "down" }) do
+        table.insert(
+            selectionBinds,
+            hl.bind(direction:upper(), hl.dsp.exec_cmd(srcPath .. "/capture-region.sh --select-window " .. direction), { description = "Select window to capture" })
+        )
+    end
+end)
+
+hl.on("layer.closed", function(layer)
+    if layer.namespace ~= "selection" or selectionLayers <= 0 then return end
+    selectionLayers = selectionLayers - 1
+    if selectionLayers ~= 0 then return end
+
+    for _, keybind in ipairs(selectionBinds) do
+        keybind:unbind()
+    end
+    selectionBinds = {}
+end)
 
 -- Monitor control
 hl.bind(mainMod .. " + M", hl.dsp.exec_cmd(home .. "/.config/hypr/bin/monitor-laptop-only.sh"))
@@ -271,8 +317,79 @@ hl.bind("F5", hl.dsp.exec_cmd("handy --toggle-transcription"))
 -- Screen annotation (wayscriber overlay toggle)
 hl.bind(mainMod .. " + D", hl.dsp.exec_cmd("wayscriber --daemon-toggle"))
 
+----------------------------------------------------------------------
+-- UNIVERSAL COPY / PASTE  (ported from Omarchy 4 bindings/clipboard.lua)
+----------------------------------------------------------------------
+-- Super+C/V/X copy/paste/cut in EVERY app, so the terminal stops being the odd
+-- one out. Terminals get Ctrl+Insert / Shift+Insert instead, because Ctrl+C
+-- there is SIGINT.
+--
+-- Sent with explicit mods to the FOCUSED SURFACE by omitting the window target,
+-- so the chord also reaches layer-shell surfaces (rofi, vicinae). A virtual
+-- keyboard (wtype) won't do: the physically-held SUPER merges into the injected
+-- chord at the seat. The down/up split works around Hyprland send_shortcut
+-- sometimes leaving synthetic key state stuck/repeating.
+-- https://github.com/hyprwm/Hyprland/discussions/14099
+local function sendShortcutOnce(mods, key)
+    return function()
+        hl.dispatch(hl.dsp.send_key_state({ mods = mods, key = key, state = "down" }))
+        hl.timer(function()
+            hl.dispatch(hl.dsp.send_key_state({ mods = mods, key = key, state = "up" }))
+        end, { timeout = 50, type = "oneshot" })
+    end
+end
+
+-- Omarchy keys this off its window tags; this config has none, so match on the
+-- class instead. "cliamp" is listed because it is a kitty window flying under
+-- its own class (see the Super+A submap, Z).
+local terminalClasses = { "kitty", "ghostty", "foot", "alacritty", "wezterm", "xterm", "cliamp" }
+
+local function activeWindowIsTerminal()
+    local ok, window = pcall(hl.get_active_window)
+    if not ok or not window then return false end
+
+    local okClass, class = pcall(function() return window.class end)
+    if not okClass or type(class) ~= "string" then return false end
+
+    class = class:lower()
+    for _, name in ipairs(terminalClasses) do
+        if class:find(name, 1, true) then return true end
+    end
+    return false
+end
+
+local function universalClipboard(defaultMods, defaultKey, terminalMods, terminalKey)
+    return function()
+        if activeWindowIsTerminal() then
+            sendShortcutOnce(terminalMods, terminalKey)()
+        else
+            sendShortcutOnce(defaultMods, defaultKey)()
+        end
+    end
+end
+
+-- Terminal chord is CTRL+SHIFT+C/V, NOT Omarchy's Ctrl+Insert / Shift+Insert.
+-- Omarchy ships foot; kitty's defaults are different and both of upstream's
+-- chords are wrong here:
+--   * ctrl+insert  is bound to NOTHING in kitty, so kitty forwards it to the
+--     running program as the xterm sequence CSI 2;5~ — which is where the
+--     stray "5~" in the shell came from.
+--   * shift+insert is paste_from_selection, i.e. the PRIMARY selection
+--     (whatever was last mouse-highlighted), not the clipboard.
+-- kitty_mod defaults to ctrl+shift, so ctrl+shift+c/v are its real
+-- copy_to_clipboard / paste_from_clipboard binds — and the same pair is
+-- correct for ghostty, foot, alacritty and wezterm.
+hl.bind(mainMod .. " + C", universalClipboard("CTRL", "C", "CTRL SHIFT", "C"), { description = "Universal copy" })
+hl.bind(mainMod .. " + V", universalClipboard("CTRL", "V", "CTRL SHIFT", "V"), { description = "Universal paste" })
+hl.bind(mainMod .. " + X", sendShortcutOnce("CTRL", "X"),                      { description = "Universal cut" })
+
 -- Custom scripts
-hl.bind(mainMod .. " + V",          hl.dsp.exec_cmd(srcPath .. "/cliphist-menu.sh c"))
+-- cliphist moved off Super+V (now universal paste) to Super+Ctrl+V — the slot
+-- Omarchy gives its own clipboard manager. The wl-paste --watch daemons in
+-- AUTOSTART above still feed it, so history is unchanged.
+hl.bind(mainMod .. " + CTRL + V",   hl.dsp.exec_cmd(srcPath .. "/cliphist-menu.sh c"))
+
+-- (cliamp, the music TUI, lives in the Super+A submap on Z — see SUBMAPS.)
 
 -- Move / change window focus
 hl.bind(mainMod .. " + left",  hl.dsp.focus({ direction = "left" }))
@@ -384,6 +501,13 @@ hl.define_submap("rofiselect", function()
     -- Native apps
     hl.bind("S",     app("signal", "signal-desktop"))
     hl.bind("slash", app("1[Pp]assword", "1password"))
+
+    -- TUI apps. cliamp is the Winamp 2.x-styled terminal music player Omarchy
+    -- ships (cliamp.stream), with built-in lo-fi radio; "?" lists its keys. It
+    -- runs as a kitty window under its OWN class so launch-or-focus.sh can find
+    -- it again — that class is also in `terminalClasses` above, so universal
+    -- copy/paste treats it as the terminal it is.
+    hl.bind("Z",     app("cliamp", "kitty --class cliamp -e cliamp"))
 
     -- vicinae system toggles (moved to SHIFT, W/A/B/M are apps now)
     hl.bind("SHIFT + W", vicinae("vicinae://launch/@dagimg-dot/store.vicinae.wifi-commander/scan-wifi"))

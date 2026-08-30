@@ -141,6 +141,8 @@ in
     steam
     protontricks
     mplayer
+    cliamp           # Winamp 2.x-styled terminal music player + lo-fi radio
+                     # (cliamp.stream). Super+A then Z; "?" for its keys.
 
     # Development tools
     lazygit          # TUI for git (LazyVim integration)

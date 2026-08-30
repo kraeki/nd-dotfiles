@@ -142,6 +142,16 @@
     extraGroups = [ "networkmanager" "wheel" "docker" "video" "render" ];
     shell = pkgs.zsh;
     packages = with pkgs; [];
+
+    # SSH keys allowed to log in as kraeki. This is the declarative equivalent
+    # of Omarchy's `omarchy-setup-security-sshd --gh-keys <user>`: NixOS writes
+    # them to /etc/ssh/authorized_keys.d/kraeki, so the list is version-
+    # controlled and a rebuild is the only way it changes. Public keys are
+    # safe to commit. To add one from GitHub: curl https://github.com/<user>.keys
+    openssh.authorizedKeys.keys = [
+      # ssh.id - @kraeki
+      "ecdsa-sha2-nistp256 AAAAE2VjZHNhLXNoYTItbmlzdHAyNTYAAAAIbmlzdHAyNTYAAABBBJeUC7acuwD97EbwtmqmK3frBRZZQUia6Sr6Q91wbKlPKQ/VefWUDH5zbXXwW2s1oaOAwEwooyeDyaNKLlgfCSE="
+    ];
   };
 
   home-manager = {
@@ -269,6 +279,10 @@
     slurp
     wf-recorder
     ffmpeg
+    # OCR + QR for the Omarchy capture ports (Super+Ctrl+Print / Super+Shift+Print).
+    # tesseract defaults to every language pack; pin the two actually used.
+    (tesseract.override { enableLanguages = [ "eng" "deu" ]; })
+    zbar
 
     # Utilities
     poppler-utils # for pdfunite
@@ -386,6 +400,11 @@
   services.tailscale.enable = true;
   networking.firewall.checkReversePath = "loose";
   networking.firewall.trustedInterfaces = [ "tailscale0" ];
+
+  # Screen recording backend for capture-screenrecording.sh. The module (not a
+  # bare systemPackages entry) is what installs the setcap wrapper that the kms
+  # capture backend needs to grab the framebuffer.
+  programs.gpu-screen-recorder.enable = true;
 
   services.openssh = {
     enable = true;
