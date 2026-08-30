@@ -352,16 +352,16 @@
   hardware.steam-hardware.enable = true;  # Enables udev rules for game controllers
   ## - Steam
 
-  programs.hyprland.enable = true;
-  programs.zsh.enable = true;
-
-  # Nautilus right-click "Open in Terminal" (kitty). The module also wires up
-  # the required dconf setting so the entry launches kitty (not gnome-terminal).
-  programs.nautilus-open-any-terminal = {
+  # Ollama - local LLM runner, ROCm-accelerated on the 860M (Krackan Point, gfx1150).
+  # ROCm ships no official gfx1150 kernels, so we point HSA at the RDNA 3.5 target
+  # gfx1151 (11.5.1) which the runtime accepts for this GPU family.
+  services.ollama = {
     enable = true;
-    terminal = "kitty";
+    package = pkgs.ollama-rocm;  # ROCm build (acceleration option was removed)
+    rocmOverrideGfx = "11.5.1";  # sets HSA_OVERRIDE_GFX_VERSION for the daemon
   };
 
+  programs.hyprland.enable = true;
 
   # Launch Hyprland under uwsm so systemd actually owns the session lifecycle.
   #
@@ -384,6 +384,15 @@
   # Side effect: programs.uwsm.enable flips services.dbus.implementation to
   # "broker" (dbus-broker), which uwsm recommends for compatibility.
   programs.hyprland.withUWSM = true;
+
+  programs.zsh.enable = true;
+
+  # Nautilus right-click "Open in Terminal" (kitty). The module also wires up
+  # the required dconf setting so the entry launches kitty (not gnome-terminal).
+  programs.nautilus-open-any-terminal = {
+    enable = true;
+    terminal = "kitty";
+  };
 
   # Some programs need SUID wrappers, can be configured further or are
   # started in user sessions.
