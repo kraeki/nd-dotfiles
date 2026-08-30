@@ -29,7 +29,7 @@
           inherit system;
           specialArgs = { inherit home-manager inputs; };
           modules = [
-            nixos-hardware.nixosModules.framework-16-7040-amd
+            nixos-hardware.nixosModules.framework-amd-ai-300-series
             ./hosts/naptop/configuration.nix
             ./theme.nix
             { nixpkgs.config.allowUnfree = true; }
