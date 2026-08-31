@@ -6,10 +6,11 @@
 # suspends the machine and eDP-1 restores itself on resume. Disabling the SOLE
 # monitor here would leave Hyprland headless (zero outputs), and re-enabling
 # eDP-1 on lid-open then frequently reports "ok" without committing — a black
-# panel that needs a power cycle. This guard is the fix for that bug.
+# panel that needs a power cycle.
 #
-# `hyprctl monitors` (not `all`) lists only ENABLED monitors, so a non-eDP-1
-# "Monitor" header means a live external.
-externals=$(hyprctl monitors | grep '^Monitor ' | grep -vc 'eDP-1')
-[ "${externals:-0}" -gt 0 ] && hyprctl eval 'hl.monitor({output="eDP-1", disabled=true})'
+# That guard now lives in toggle-laptop-display (which refuses to disable the
+# only active monitor), so this is a thin wrapper. --quiet because a closing lid
+# should not raise a notification; `|| exit 0` because the undocked refusal is
+# the expected path here, not an error.
+"$HOME/.local/share/bin/toggle-laptop-display" off --quiet
 exit 0

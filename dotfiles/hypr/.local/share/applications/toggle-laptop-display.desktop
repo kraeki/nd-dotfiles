@@ -1,0 +1,27 @@
+# Makes `toggle-laptop-display` show up as an entry in vicinae (and any other
+# XDG launcher), which index ~/.local/share/applications.
+#
+# Exec is an ABSOLUTE path with no quoting and no `sh -c` wrapper on purpose:
+# the desktop-entry spec only defines DOUBLE-quote quoting (and requires `$` to
+# be backslash-escaped inside it), so `sh -c '...$HOME...'` is parser-dependent
+# and breaks on strict implementations. The path has no spaces, so bare is safe.
+[Desktop Entry]
+Type=Application
+Name=Toggle Laptop Display
+GenericName=Laptop panel on/off
+Comment=Turn the internal laptop panel (eDP-1) on or off, like closing the lid
+Icon=video-display
+Terminal=false
+Categories=Settings;HardwareSettings;
+Keywords=monitor;display;screen;laptop;panel;edp;lid;clamshell;dock;
+TryExec=/home/kraeki/.local/share/bin/toggle-laptop-display
+Exec=/home/kraeki/.local/share/bin/toggle-laptop-display toggle
+Actions=On;Off;
+
+[Desktop Action On]
+Name=Turn Laptop Display On
+Exec=/home/kraeki/.local/share/bin/toggle-laptop-display on
+
+[Desktop Action Off]
+Name=Turn Laptop Display Off
+Exec=/home/kraeki/.local/share/bin/toggle-laptop-display off

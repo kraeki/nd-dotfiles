@@ -1,0 +1,90 @@
+#!/bin/sh
+# Toggle the internal laptop panel (eDP-1) on or off — the exact operation the
+# lid switch performs, exposed as a command so it can also be run from vicinae,
+# a keybind, or a shell. lid-close.sh / lid-open.sh delegate here, so there is
+# one implementation of "turn the panel off/on" and one place for the guards.
+#
+# Usage: toggle-laptop-display [toggle|on|off|status] [-q|--quiet]
+#
+# Lua config (Hyprland 0.55+): runtime monitor changes go through `hyprctl eval`
+# with hl.monitor(); `hyprctl keyword monitor ...` is rejected by the non-legacy
+# parser.
+#
+# `hyprctl monitors` (unlike `monitors all`) lists only ENABLED monitors, so the
+# presence of a "Monitor eDP-1" header is the state check.
+
+EDP="eDP-1"
+action="toggle"
+quiet=""
+
+for arg in "$@"; do
+	case "$arg" in
+	toggle | on | off | status) action="$arg" ;;
+	-q | --quiet) quiet=1 ;;
+	-h | --help)
+		sed -n '2,8p' "$0" | sed 's/^# \{0,1\}//'
+		exit 0
+		;;
+	*)
+		echo "toggle-laptop-display: unknown argument '$arg'" >&2
+		exit 2
+		;;
+	esac
+done
+
+notify() {
+	[ -n "$quiet" ] && return 0
+	notify-send -a "Display" -i video-display "$1" "$2"
+}
+
+edp_enabled() { hyprctl monitors | grep -q "^Monitor $EDP "; }
+external_count() { hyprctl monitors | grep '^Monitor ' | grep -vc "$EDP"; }
+
+turn_on() {
+	# Enabling from a just-resumed / recently-headless state can report "ok"
+	# without actually committing, so verify and retry a few times.
+	i=0
+	while [ "$i" -lt 5 ]; do
+		edp_enabled && return 0
+		hyprctl eval "hl.monitor({output=\"$EDP\", mode=\"preferred\", position=\"auto\", scale=1.333, disabled=false})" >/dev/null
+		i=$((i + 1))
+		sleep 0.4
+	done
+	edp_enabled
+}
+
+turn_off() {
+	# NEVER disable the sole monitor: that leaves Hyprland headless (zero
+	# outputs) and re-enabling then frequently reports "ok" without committing
+	# — a black panel that needs a power cycle. Same guard as lid-close.sh.
+	if [ "$(external_count)" -eq 0 ]; then
+		notify "Laptop display" "Refused: it is the only active monitor."
+		echo "toggle-laptop-display: eDP-1 is the only active monitor, refusing" >&2
+		return 1
+	fi
+	hyprctl eval "hl.monitor({output=\"$EDP\", disabled=true})" >/dev/null
+	! edp_enabled
+}
+
+case "$action" in
+status)
+	edp_enabled && echo on || echo off
+	exit 0
+	;;
+on)
+	edp_enabled && exit 0
+	turn_on && notify "Laptop display" "On" || exit 1
+	;;
+off)
+	edp_enabled || exit 0
+	turn_off && notify "Laptop display" "Off" || exit 1
+	;;
+toggle)
+	if edp_enabled; then
+		turn_off && notify "Laptop display" "Off" || exit 1
+	else
+		turn_on && notify "Laptop display" "On" || exit 1
+	fi
+	;;
+esac
+exit 0

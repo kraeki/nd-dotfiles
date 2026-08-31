@@ -93,6 +93,18 @@ This separation keeps system concerns distinct from user preferences and makes h
   `monitor-docked-home.sh` = force the docked layout). Both apply via
   `hyprctl eval 'hl.monitor(...)'` and each sets `disabled=` explicitly, because
   a mode/position rule alone does NOT clear a previously-set `disabled` flag.
+- `toggle-laptop-display [toggle|on|off|status] [-q]` in
+  `dotfiles/hypr/.local/share/bin/` is the **single implementation** of "panel
+  on/off" — `lid-close.sh` / `lid-open.sh` are now thin `--quiet` wrappers around
+  `off` / `on`, so the headless guard and the enable-retry live in one place.
+  It refuses to disable eDP-1 when it is the only active monitor (that is what
+  left the panel dark until a power cycle), and retries+verifies on enable
+  because a just-resumed Hyprland reports "ok" without committing.
+  `dotfiles/hypr/.local/share/applications/toggle-laptop-display.desktop` exposes
+  it to **vicinae** and any other XDG launcher (plus On/Off desktop actions). Its
+  `Exec=` is a bare absolute path: the desktop-entry spec only defines
+  double-quote quoting and needs `$` escaped inside it, so an `sh -c '…$HOME…'`
+  wrapper is parser-dependent. New XDG entries need a vicinae restart to appear.
 
 ### App Hotkeys (Super+A submap)
 Modelled on Omarchy 4's `bindings/applications.lua`, merged into the existing
