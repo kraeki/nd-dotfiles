@@ -2,8 +2,8 @@
 # `nd-install` — wifi → GitHub device-flow auth → clone this (private)
 # repo → pick/generate a host → disko partitioning → nixos-install.
 #
-# Build:  nix build .#iso        (result/iso/nd-*.iso)
-# Flash:  dd if=result/iso/nd-*.iso of=/dev/sdX bs=4M status=progress
+# Build:  nix build .#iso        (result/iso/ndos-*.iso)
+# Flash:  dd if=result/iso/ndos-*.iso of=/dev/sdX bs=4M status=progress
 #
 # Deliberately NOT the nd profile — the ISO stays small; the full system
 # is what gets installed.
@@ -12,7 +12,7 @@
 {
   imports = [ (modulesPath + "/installer/cd-dvd/installation-cd-minimal.nix") ];
 
-  image.baseName = lib.mkForce "nd";
+  image.baseName = lib.mkForce "ndos";
   networking.hostName = "nd-iso";
 
   # NetworkManager for the installer's wifi prompt (the minimal CD defaults
@@ -44,7 +44,7 @@
   services.getty.helpLine = lib.mkAfter ''
 
       ┌─┐┌─┐
-      │ ││ │  nd·os installer
+      │ ││ │  ndos installer
       └─┘└─┘
 
       run  nd-install  to begin

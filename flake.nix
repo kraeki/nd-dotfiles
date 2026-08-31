@@ -1,5 +1,5 @@
 {
-  description = "nd — NixOS + Hyprland system, packaged as a reusable module library";
+  description = "ndos — NixOS + Hyprland system, packaged as a reusable module library";
 
   inputs = {
     nixpkgs.url = "github:NixOS/nixpkgs/nixos-unstable";

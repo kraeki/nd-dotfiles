@@ -23,7 +23,7 @@ banner() {
   cat <<'LOGO'
 
   ┌─┐┌─┐
-  │ ││ │  nd·os
+  │ ││ │  ndos
   └─┘└─┘
 LOGO
   printf '%s' "$RESET"
