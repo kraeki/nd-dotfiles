@@ -1,8 +1,9 @@
-# nd-dotfiles
+# ndos
 
 My NixOS + Hyprland system — flakes, home-manager, and stow-managed dotfiles,
-organized as a reusable module library. See
-[docs/ARCHITECTURE.md](docs/ARCHITECTURE.md) for where this is headed.
+organized as a reusable module library (options live under the `nd.*`
+namespace). See [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md) for where this
+is headed.
 
 ## Layout
 
@@ -77,21 +78,21 @@ the full system. **This erases the disk** — the two-step flip is deliberate.
 ## The installer ISO
 
 ```bash
-nix build .#iso     # → result/iso/nd-*.iso
-dd if=result/iso/nd-*.iso of=/dev/sdX bs=4M status=progress
+nix build .#iso     # → result/iso/ndos-*.iso
+dd if=result/iso/ndos-*.iso of=/dev/sdX bs=4M status=progress
 ```
 
 Boot the stick and run `nd-install`: it connects wifi, authenticates to
 GitHub with a device-flow code (repo is private — confirm on your phone, no
 password typed on the target), clones the repo, and asks which machine this
 is. An existing host installs per its `disko.nix` (after the reinstall flip
-below); "new machine" probes the hardware, asks hostname/username/disk, and
+above); "new machine" probes the hardware, asks hostname/username/disk, and
 generates a disko-owned `hosts/<name>/`. Then: LUKS passphrase, one final
 ERASE confirmation, disko partitioning, `nixos-install`, user password,
 reboot. The repo lands in `~/work/nd-dotfiles` on the new system, generated
 host staged for commit.
 
-## Bare-metal reinstall (nixos-anywhere)
+## CI & binary cache
 
 Every push runs `.github/workflows/build.yml`: the `check` job evaluates the
 whole naptop system (a broken module fails in CI, not on the laptop), and the

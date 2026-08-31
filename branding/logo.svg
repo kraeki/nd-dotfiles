@@ -1,5 +1,5 @@
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 256 256" width="256" height="256">
-  <!-- nd·os mark: a terminal window with a prompt. Catppuccin Mocha teal
+  <!-- ndos mark: a terminal window with a prompt. Catppuccin Mocha teal
        (#94e2d5) frame + chevron, peach (#fab387) cursor. Vector master for
        every branding surface — Plymouth renders it via rsvg-convert at
        system build time (modules/nixos/branding.nix), the wallpaper and

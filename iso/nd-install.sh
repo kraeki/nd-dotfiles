@@ -16,7 +16,7 @@ printf '%s' "$TEAL"
 cat <<'LOGO'
 
   ┌─┐┌─┐
-  │ ││ │  nd·os installer
+  │ ││ │  ndos installer
   └─┘└─┘
 LOGO
 printf '%s' "$RESET"
