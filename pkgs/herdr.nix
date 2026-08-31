@@ -1,4 +1,4 @@
-# herdr: terminal agent-multiplexer (github.com/ogulcancelik/herdr).
+# herdr: terminal agent-multiplexer (github.com/herdrdev/herdr).
 # Not in nixpkgs; upstream ships a prebuilt Linux binary that we patchelf
 # onto the NixOS dynamic loader. Bump `version` + `hash` on updates
 # (nix store prefetch-file <url>).
@@ -6,10 +6,10 @@
 
 stdenv.mkDerivation rec {
   pname = "herdr";
-  version = "0.7.4";
+  version = "0.8.2";
   src = fetchurl {
-    url = "https://github.com/ogulcancelik/herdr/releases/download/v${version}/herdr-linux-x86_64";
-    hash = "sha256-vA/ALUulAPnKwjU6Q+Z/4DZ4Xsym61U3jgUPrDwQMFk=";
+    url = "https://github.com/herdrdev/herdr/releases/download/v${version}/herdr-linux-x86_64";
+    hash = "sha256-l2FQoU1JDJSyQ+ouGn6y37Z/EuNrGC25CTb2co5q7PQ=";
   };
   dontUnpack = true;
   nativeBuildInputs = [ autoPatchelfHook ];

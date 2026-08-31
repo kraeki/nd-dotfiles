@@ -60,6 +60,11 @@
     ## 1password needs keyring
     services.gnome.gnome-keyring.enable = true;
 
+    # Screen recording backend for capture-screenrecording.sh. The module (not a
+    # bare systemPackages entry) is what installs the setcap wrapper that the kms
+    # capture backend needs to grab the framebuffer.
+    programs.gpu-screen-recorder.enable = true;
+
     # Nautilus right-click "Open in Terminal" (kitty). The module also wires up
     # the required dconf setting so the entry launches kitty (not gnome-terminal).
     programs.nautilus-open-any-terminal = {
@@ -138,6 +143,10 @@
       slurp
       wf-recorder
       ffmpeg
+      # OCR + QR for the Omarchy capture ports (Super+Ctrl+Print / Super+Shift+Print).
+      # tesseract defaults to every language pack; pin the two actually used.
+      (tesseract.override { enableLanguages = [ "eng" "deu" ]; })
+      zbar
 
       # Utilities
       poppler-utils # for pdfunite

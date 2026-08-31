@@ -1,8 +1,10 @@
-# naptop disk layout for a wipe-and-reinstall (disko / nixos-anywhere).
-# Mirrors what the machine runs today: GPT, 1G ESP at /boot, LUKS2
-# container holding the ext4 root (noatime + discard, no swap — zram
-# covers OOM). LUKS passphrase at install time comes from the file named
-# in `passwordFile` — see "Bare-metal reinstall" in the README.
+# naptop (Framework 13, Ryzen AI 300) disk layout for a wipe-and-reinstall
+# (disko / nixos-anywhere). Mirrors what the machine runs today: GPT, ESP at
+# /boot, LUKS2 ext4 root, plus a LUKS-encrypted swap partition (the FW13
+# install has one — the live scan can't reveal its size, so adjust `size`
+# below to the real value before the first reinstall). LUKS passphrase at
+# install time comes from the file named in `passwordFile` — see
+# "Bare-metal reinstall" in the README.
 #
 # IMPORTANT — two modes:
 #   * Today (enableConfig = false below): this layout is documentation +
@@ -37,6 +39,16 @@
             mountOptions = [ "fmask=0077" "dmask=0077" ];
           };
         };
+        swap = {
+          size = "32G";  # ← set to the machine's real swap size before reinstalling
+          content = {
+            type = "luks";
+            name = "cryptswap";
+            passwordFile = "/tmp/disk.key";
+            settings.allowDiscards = true;
+            content = { type = "swap"; };
+          };
+        };
         luks = {
           size = "100%";
           content = {
@@ -45,12 +57,11 @@
             # Consumed at format time by `nixos-anywhere
             # --disk-encryption-keys /tmp/disk.key <local-file>`.
             passwordFile = "/tmp/disk.key";
-            settings.allowDiscards = true;  # TRIM through LUKS (matches "discard")
+            settings.allowDiscards = true;  # TRIM through LUKS
             content = {
               type = "filesystem";
               format = "ext4";
               mountpoint = "/";
-              mountOptions = [ "noatime" "discard" ];
             };
           };
         };

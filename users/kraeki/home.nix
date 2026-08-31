@@ -15,6 +15,11 @@ in
   home.homeDirectory = "/home/kraeki";
   home.stateVersion = "23.11";
 
+  # `uv tool install <pkg>` drops standalone shims here (they embed their own
+  # venv python, so uv itself isn't needed at runtime). Holds the `graphify`
+  # knowledge-graph CLI backing the /graphify Claude Code skill.
+  home.sessionPath = [ "$HOME/.local/bin" ];
+
   programs.home-manager.enable = true;
 
   # Personal aliases (merge into the nd shell profile's zsh config)
@@ -22,6 +27,10 @@ in
     vi = "nvim";
     hc = "vi ~/.config/hypr";
     nc = "cd ~/work/nd-dotfiles; vi ./hosts/naptop/default.nix";
+    # Always start Claude Code in bypass-permissions mode.
+    # ~/.claude/settings.json already sets skipDangerousModePermissionPrompt,
+    # so this starts straight into the session without the confirmation screen.
+    claude = "claude --dangerously-skip-permissions";
   };
 
   home.packages = with pkgs; [
@@ -55,12 +64,17 @@ in
     steam
     protontricks
     mplayer
+    cliamp           # Winamp 2.x-styled terminal music player + lo-fi radio
+                     # (cliamp.stream). Super+A then Z; "?" for its keys.
 
     # Development tools
     lazygit          # TUI for git (LazyVim integration)
     lazydocker       # TUI for docker
     superfile        # TUI file manager (`spf`)
     python3          # Python runtime for LSPs and tools
+    uv               # Python package/tool manager; installs PyPI CLIs that
+                     # aren't in nixpkgs into ~/.local/bin (`uv tool install`).
+                     # Currently provides: graphify (see home.sessionPath above).
     glib             # Provides gio trash command
     ast-grep         # Structural search/replace
     ghostscript      # PDF rendering in neovim
