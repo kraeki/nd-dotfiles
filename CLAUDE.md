@@ -105,6 +105,28 @@ This separation keeps system concerns distinct from user preferences and makes h
   `Exec=` is a bare absolute path: the desktop-entry spec only defines
   double-quote quoting and needs `$` escaped inside it, so an `sh -c '…$HOME…'`
   wrapper is parser-dependent. New XDG entries need a vicinae restart to appear.
+- `toggle-display-mirror [toggle|on|off|status] [-q]` (same directory,
+  `Super+Ctrl+Alt+Delete`) is **presentation mirroring**: every enabled external
+  becomes a copy of eDP-1, so what is on the laptop shows on the projector.
+  - **The mirror source must be an enabled monitor.** Docked with the lid shut,
+    eDP-1 is disabled and `mirror="eDP-1"` returns `ok` while doing nothing —
+    `mirrorOf` stays `none`. So `on` lights the panel first (delegating to
+    `toggle-laptop-display on`) and records whether it was dark.
+  - **`hyprctl monitors` lists neither disabled NOR mirrored outputs** — an
+    output vanishes from it the moment it becomes a mirror. All state queries
+    here use `hyprctl -j monitors all` and filter `.disabled` themselves. This
+    also means `toggle-laptop-display`'s "only active monitor" guard would
+    misfire while mirroring, so `off` clears the mirrors and *waits* for that to
+    land before switching the panel back off.
+  - Each external is re-applied with its **live** mode rather than
+    `mode="preferred"` — the Dells report no preferred mode and would drop to
+    1280x720 (same trap as `monitor-docked-home.sh`). Geometry, scale and
+    transform are saved to `$XDG_RUNTIME_DIR/hypr-display-mirror.state` at `on`
+    and restored at `off`; with no state file it falls back to `hyprctl reload`.
+    `off` does not reload by default because reload re-applies the declarative
+    eDP-1 rule and would leave the panel lit while docked with the lid closed.
+  - `mirror="none"` is what clears a mirror; a geometry rule alone does not
+    (same shape as the `disabled=` flag needing an explicit clear).
 
 ### App Hotkeys (Super+A submap)
 Modelled on Omarchy 4's `bindings/applications.lua`, merged into the existing
@@ -310,6 +332,7 @@ Uses TLP (not power-profiles-daemon) with aggressive battery optimization:
 - **Super+Shift+E**: File explorer (rofi)
 - **Super+Q**: Close window
 - **Super+F**: Fullscreen
+- **Super+T**: Toggle floating on the focused window (`Super+Ctrl+Space` is an alias)
 - **Super+C / Super+V**: Universal copy / paste (see below)
 - **Super+Ctrl+V**: Clipboard history (rofi + cliphist)
 - **Super+X** / **Print**: Screenshot — smart picker (see below)
@@ -318,6 +341,16 @@ Uses TLP (not power-profiles-daemon) with aggressive battery optimization:
 - **Super+Ctrl+Print**: Extract text from a region (OCR)
 - **Super+Shift+Print**: Decode a QR code from a region
 - **Super+M**: Toggle laptop-only monitor mode
+- **Super+Backspace**: Toggle the laptop panel on/off (`toggle-laptop-display`)
+- **Super+Ctrl+Backspace**: Toggle presentation mirroring (`toggle-display-mirror`)
+  - Backspace, not Delete: the Magic Keyboard's `delete` key emits KEY_BACKSPACE
+    (real Delete is fn+delete there). Physically these are Ctrl+delete and
+    Ctrl+Option+delete — see the modifier-rotation note under Important Notes.
+  - These keys previously held the session-exit binds; both were removed
+    (`Super+Delete` = `hl.dsp.exit()`, too easy to hit by accident;
+    `Super+Backspace` = `$srcPath/logoutlaunch.sh`, a script that has never
+    existed in this repo — the bind was silently dead). There is now **no logout
+    keybind**, and no `wlogout` installed; log out with `loginctl`.
 - **Super+A**: App / selector submap (launch-or-focus; second press focuses, never duplicates)
   - `Y` YouTube · `W` WhatsApp · `T` Telegram · `P` Photos · `M` Maps (private Chrome profile)
   - `C` Calendar · `G` Gmail · `D` Drive (Roche work Chrome profile)
@@ -336,7 +369,21 @@ Docker is enabled and the user is in the docker group. Use standard docker comma
 - The NixOS configuration enables flakes and nix-command experimental features
 - System uses systemd-boot and latest kernel (`linuxPackages_latest`)
 - Keyboard layouts: US and CH (Swiss) with Both Shifts to toggle
-- Keyboard remapping: Caps Lock → Super, Ctrl ↔ Alt
+- Keyboard remapping (`kb_options = "caps:super,altwin:ctrl_alt_win,..."`): Caps
+  Lock → Super, and `altwin:ctrl_alt_win` **rotates** the other three (it is NOT
+  a Ctrl↔Alt swap). What a bind name means physically:
+  | bind says | you press |
+  |---|---|
+  | `SUPER` | physical Ctrl (or Caps Lock) |
+  | `CTRL`  | physical Alt / Option |
+  | `ALT`   | physical Win / Cmd |
+  This is also why the right-hand Option key emits `Control_R` (`code:108`, the
+  dictation bind) rather than Super.
 - Monitor scaling: GDK_SCALE=1.333 for HiDPI display
 - Scripts directory must exist at `~/.local/share/bin/` for Hyprland to function properly
 - 1Password requires gnome-keyring (configured in system)
+- The main keyboard is an **Apple Magic Keyboard with Touch ID**, which has no
+  forward-Delete key: the key labelled `delete` sends KEY_BACKSPACE, and
+  KEY_DELETE is only reachable as fn+delete. Binds on `Delete` therefore look
+  dead on it while working on the Framework's built-in keyboard — prefer
+  `Backspace` for anything meant to work on both.

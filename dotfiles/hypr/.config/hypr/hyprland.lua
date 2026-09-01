@@ -197,12 +197,16 @@ hl.bind(mainMod .. " + SHIFT + R", hl.dsp.exec_cmd("hyprctl reload"))
 
 -- Window / session actions
 hl.bind(mainMod .. " + Q",            hl.dsp.window.close())
-hl.bind(mainMod .. " + Delete",       hl.dsp.exit())
-hl.bind(mainMod .. " + CTRL + Space", hl.dsp.window.float({ action = "toggle" }))
+-- Session-exit binds were REMOVED: Super+Delete (hl.dsp.exit — kill the session
+-- outright) as too easy to hit by accident, and Super+Backspace, which pointed at
+-- $srcPath/logoutlaunch.sh — a script that does not exist in this repo and never
+-- did (no git history for it), so the bind was silently dead. Both keys now drive
+-- the display toggles below. There is NO logout keybind; use loginctl.
+hl.bind(mainMod .. " + T",           hl.dsp.window.float({ action = "toggle" }))
+hl.bind(mainMod .. " + CTRL + Space", hl.dsp.window.float({ action = "toggle" }))  -- alias
 hl.bind(mainMod .. " + G",            hl.dsp.group.toggle())
 hl.bind(mainMod .. " + F",            hl.dsp.window.fullscreen({ mode = "fullscreen" }))
 hl.bind(mainMod .. " + Escape",       hl.dsp.exec_cmd("hyprlock"))
-hl.bind(mainMod .. " + Backspace",    hl.dsp.exec_cmd(srcPath .. "/logoutlaunch.sh"))
 hl.bind("CTRL + ALT + W",             hl.dsp.exec_cmd("killall waybar || waybar"))
 
 -- Application shortcuts
@@ -291,6 +295,22 @@ end)
 
 -- Monitor control
 hl.bind(mainMod .. " + M", hl.dsp.exec_cmd(home .. "/.config/hypr/bin/monitor-laptop-only.sh"))
+
+-- Laptop panel on/off, and presentation mirroring (externals show a copy of the
+-- panel), one modifier apart.
+--
+-- BACKSPACE, NOT DELETE. The main keyboard is an Apple Magic Keyboard, whose
+-- key labelled "delete" emits KEY_BACKSPACE; real Delete (KEY_DELETE) is only
+-- reachable there as fn+delete. Delete binds therefore looked dead on this
+-- keyboard while working fine on the Framework's built-in one.
+--
+-- Physically these are Ctrl+Option+delete and Ctrl+Option+Cmd+delete: the
+-- altwin:ctrl_alt_win kb_option ROTATES modifiers (it is not a Ctrl<->Alt swap)
+-- — physical Ctrl emits SUPER, physical Alt emits CTRL, physical Win emits ALT.
+hl.bind(mainMod .. " + Backspace",        hl.dsp.exec_cmd(srcPath .. "/toggle-laptop-display"),
+    { description = "Toggle laptop display on/off" })
+hl.bind(mainMod .. " + CTRL + Backspace", hl.dsp.exec_cmd(srcPath .. "/toggle-display-mirror"),
+    { description = "Toggle laptop display mirroring" })
 
 -- Laptop lid (clamshell docking). switch:on = lid CLOSED, switch:off = lid OPEN
 -- (verified against Hyprland source). These touch ONLY eDP-1 — the Dells are

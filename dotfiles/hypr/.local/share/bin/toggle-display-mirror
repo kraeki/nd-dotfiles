@@ -1,0 +1,160 @@
+#!/bin/sh
+# Toggle presentation mirroring: every external display shows a copy of the
+# laptop panel (eDP-1). Companion to toggle-laptop-display, which owns "is the
+# panel on"; this owns "is everything else a copy of it".
+#
+# Usage: toggle-display-mirror [toggle|on|off|status] [-q|--quiet]
+#
+# Lua config (Hyprland 0.55+): runtime monitor changes go through `hyprctl eval`
+# with hl.monitor(); `hyprctl keyword monitor ...` is rejected by the non-legacy
+# parser. `mirror="none"` clears a mirror, `mirror="eDP-1"` sets one.
+#
+# THE MIRROR SOURCE MUST BE ENABLED. Docked with the lid shut, eDP-1 is disabled
+# and `mirror="eDP-1"` reports "ok" while doing nothing at all (mirrorOf stays
+# "none"). So `on` enables the panel first, via toggle-laptop-display.
+#
+# `off` restores geometry from a state file written at `on` time rather than
+# calling `hyprctl reload`: reload re-applies the declarative eDP-1 rule, which
+# would leave the panel lit after un-mirroring while docked with the lid closed.
+
+EDP="eDP-1"
+STATE="${XDG_RUNTIME_DIR:-/tmp}/hypr-display-mirror.state"
+SRC="$(dirname "$0")"
+action="toggle"
+quiet=""
+
+for arg in "$@"; do
+	case "$arg" in
+	toggle | on | off | status) action="$arg" ;;
+	-q | --quiet) quiet=1 ;;
+	-h | --help)
+		sed -n '2,6p' "$0" | sed 's/^# \{0,1\}//'
+		exit 0
+		;;
+	*)
+		echo "toggle-display-mirror: unknown argument '$arg'" >&2
+		exit 2
+		;;
+	esac
+done
+
+notify() {
+	[ -n "$quiet" ] && return 0
+	notify-send -a "Display" -i video-display "$1" "$2"
+}
+
+mon() { hyprctl eval "hl.monitor({$1})" >/dev/null; }
+
+# NOTE: plain `hyprctl monitors` lists neither disabled NOR MIRRORED outputs —
+# a monitor vanishes from it the moment it becomes a mirror. Everything here
+# therefore queries `monitors all` and filters on .disabled itself.
+mirroring()     { [ -n "$(hyprctl -j monitors all | jq -r '.[]|select(.mirrorOf!="none")|.name')" ]; }
+not_mirroring() { ! mirroring; }
+edp_enabled()   { hyprctl monitors | grep -q "^Monitor $EDP "; }
+
+# Monitor changes land a frame or two after `hyprctl eval` returns "ok", so
+# every state change is verified with a short retry rather than trusted.
+wait_for() {
+	i=0
+	while [ "$i" -lt 8 ]; do
+		"$@" && return 0
+		sleep 0.25
+		i=$((i + 1))
+	done
+	return 1
+}
+
+# name|mode|position|scale|transform for every ENABLED external. Deliberately
+# only enabled ones: their live mode is reused verbatim, which sidesteps the
+# "preferred" trap (the Dell U2518Ds advertise no preferred mode and fall back
+# to 1280x720 — see monitor-docked-home.sh).
+externals() {
+	hyprctl -j monitors all | jq -r --arg edp "$EDP" '
+		.[] | select(.name != $edp) | select(.disabled == false)
+		| [ .name,
+		    "\(.width)x\(.height)@\((.refreshRate*100|round)/100)",
+		    "\(.x)x\(.y)",
+		    (.scale|tostring),
+		    (.transform|tostring) ] | join("|")'
+}
+
+turn_on() {
+	list="$(externals)"
+	if [ -z "$list" ]; then
+		notify "Mirror" "No external display to mirror onto."
+		echo "toggle-display-mirror: no enabled external monitor" >&2
+		return 1
+	fi
+
+	# Remember what to come back to, including whether the panel was dark.
+	{
+		edp_enabled && echo "edp|on" || echo "edp|off"
+		echo "$list"
+	} >"$STATE"
+
+	if ! edp_enabled; then
+		"$SRC/toggle-laptop-display" on --quiet || return 1
+	fi
+
+	echo "$list" | while IFS='|' read -r name mode pos scale transform; do
+		[ -n "$name" ] || continue
+		mon "output=\"$name\", mode=\"$mode\", scale=$scale, transform=$transform, mirror=\"$EDP\", disabled=false"
+	done
+	wait_for mirroring
+}
+
+turn_off() {
+	if [ ! -s "$STATE" ]; then
+		# No state (mirror set up before a compositor restart, say): clear the
+		# mirrors and let the declarative rules in hyprland.lua sort out geometry.
+		hyprctl -j monitors | jq -r '.[]|select(.mirrorOf!="none")|.name' |
+			while read -r name; do
+				[ -n "$name" ] && mon "output=\"$name\", mirror=\"none\""
+			done
+		hyprctl reload >/dev/null
+		wait_for not_mirroring
+		return
+	fi
+
+	# Externals FIRST, so eDP-1's workspaces have somewhere to land before the
+	# panel is switched back off (same ordering as monitor-docked-home.sh).
+	grep -v '^edp|' "$STATE" | while IFS='|' read -r name mode pos scale transform; do
+		[ -n "$name" ] || continue
+		mon "output=\"$name\", mode=\"$mode\", position=\"$pos\", scale=$scale, transform=$transform, mirror=\"none\", disabled=false"
+	done
+
+	# Un-mirroring must land before the panel is switched back off:
+	# toggle-laptop-display refuses to disable eDP-1 when it is the only monitor
+	# `hyprctl monitors` reports — and while mirrored, the externals are absent
+	# from that list, so it would see exactly that and refuse.
+	wait_for not_mirroring || return 1
+
+	if grep -q '^edp|off$' "$STATE"; then
+		"$SRC/toggle-laptop-display" off --quiet
+	fi
+
+	rm -f "$STATE"
+}
+
+case "$action" in
+status)
+	mirroring && echo on || echo off
+	exit 0
+	;;
+on)
+	mirroring && exit 0
+	turn_on && notify "Mirror" "On — externals mirror the laptop panel" || exit 1
+	;;
+off)
+	mirroring || exit 0
+	turn_off && notify "Mirror" "Off" || exit 1
+	;;
+toggle)
+	if mirroring; then
+		turn_off && notify "Mirror" "Off" || exit 1
+	else
+		turn_on && notify "Mirror" "On — externals mirror the laptop panel" || exit 1
+	fi
+	;;
+esac
+exit 0
