@@ -57,6 +57,34 @@
     "amdgpu.gpu_recovery=1"    # Auto-reset GPU on hang instead of freezing system
   ];
 
+  # Encrypted swap (nvme0n1p3) + hibernation.
+  #
+  # hardware-configuration.nix declares this partition as a swapDevice by its
+  # mapper path, but nothing ever unlocked the container -- only the root volume
+  # had an initrd.luks entry. systemd therefore waited out its full 90s device
+  # timeout on every boot ("A start job is running for /dev/mapper/luks-ce375174-...")
+  # before failing swap.target. That 90s *was* the boot delay.
+  #
+  # No second passphrase prompt, *provided both volumes share a passphrase*.
+  # This is a systemd initrd (boot.initrd.systemd.enable is true here), so the
+  # two devices land in the initrd's /etc/crypttab and systemd-cryptsetup caches
+  # the entered passphrase in the kernel keyring -- crypttab's password-cache=
+  # defaults to "yes", and the cache is checked before prompting again. The 2.5
+  # minute cache timeout is irrelevant since both unlock back-to-back.
+  # NB: boot.initrd.luks.reusePassphrases does NOT apply -- that is the
+  # script-based initrd's mechanism and is dead code on this system.
+  # If the passphrases ever diverge, add the root key to this volume with
+  # `cryptsetup luksAddKey`; do not reach for an initrd keyfile, which would sit
+  # on the unencrypted /boot.
+  boot.initrd.luks.devices."luks-ce375174-c66d-4587-bf7c-acf70aa63c2f".device =
+    "/dev/disk/by-uuid/ce375174-c66d-4587-bf7c-acf70aa63c2f";
+
+  # Hibernation. 33.7G of swap against 30G of RAM, so the image fits. This only
+  # works because the device above is opened in initrd, before resume runs.
+  # zramSwap stays at priority 5, so it is still filled first and the disk swap
+  # remains the deeper safety net.
+  boot.resumeDevice = "/dev/mapper/luks-ce375174-c66d-4587-bf7c-acf70aa63c2f";
+
   boot.kernelModules = [ "hid_apple" "wireguard" ];
   boot.extraModprobeConfig = ''
     options hid_apple swap_fn_leftctrl=1 swap_opt_cmd=1 fnmode=2
