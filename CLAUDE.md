@@ -401,13 +401,27 @@ Auto-started in Hyprland (`exec-once`):
 - `blueman-applet`, `nm-applet` - System tray
 
 ### Power Management
-Uses TLP (not power-profiles-daemon) with aggressive battery optimization:
-- USB autosuspend enabled
-- PCIe ASPM: powersupersave on battery
-- SATA ALPM: min_power on battery
-- CPU governor: powersave on battery with boost disabled
-- Battery charge thresholds: 75-80%
-- Platform profile: low-power on battery
+Uses **power-profiles-daemon**, as AMD and Framework recommend for these Ryzen
+parts. **TLP is explicitly disabled** (`services.tlp.enable = false`) — it
+conflicts with PPD — and `powerManagement.powertop.enable = false` for the same
+reason. Do not re-describe this as a TLP setup: the old TLP tunables (USB
+autosuspend, PCIe ASPM powersupersave, SATA ALPM, powersave governor, 75-80%
+charge thresholds) are all gone with it.
+
+Battery charge is capped by `systemd.services.battery-charge-threshold` in
+`configuration.nix`, because **PPD has no charge-threshold support** — dropping
+TLP silently removed the cap and left the pack charging to 100%.
+- Writes `/sys/class/power_supply/BAT*/charge_control_end_threshold`, provided
+  by the mainline `cros_charge_control` driver against the Framework EC.
+  `framework-tool --charge-limit` pokes the same EC register.
+- **End threshold only** — there is no `charge_control_start_threshold` here;
+  the EC applies its own recharge hysteresis a few percent below the ceiling.
+- Runs on `multi-user.target` *and* `suspend`/`hibernate.target`. It must NOT
+  set `RemainAfterExit`: a oneshot left "active" from boot is skipped when the
+  sleep targets pull it in again, so the re-assert after an EC reset never
+  happens.
+- The limit is the `limit` binding in that `let`. 80 is the balance point; 60
+  roughly halves the calendar-aging rate again if the machine never undocks.
 
 ## Common Keybindings
 
