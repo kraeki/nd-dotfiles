@@ -150,6 +150,35 @@ same site under two accounts stays two windows, each focused by its own key.
 Note: `W`/`M` in this submap are WhatsApp/Maps; the vicinae system toggles that
 previously held those letters moved to `Shift+`-prefixed keys.
 
+### ASCII Logo (Omarchy)
+Three scripts in `dotfiles/hypr/.local/share/bin/` for generating ASCII/Unicode
+art logos (screensaver, terminal greeter, README). The first two are vendored
+from basecamp/omarchy; the third is local:
+- `ascii-logo-text <text>` — renders text in Delta Corps Priest 1, the FIGlet font
+  the Omarchy logo is drawn in. The font is embedded in the script, so this is
+  pure bash+awk with no dependencies. Letters and spaces only; digits and
+  punctuation have no glyph and are named on stderr.
+- `ascii-logo-image <in.svg|png> <out.txt> [--width N] [--height N]
+  [--mode braille|block] [--threshold PCT] [--invert] [--no-trim]` — converts an
+  image. Needs ImageMagick 7 (`magick`) + gawk, neither of which is in
+  `nixos-config`, so it carries a `nix-shell -i bash --packages imagemagick gawk`
+  shebang and pulls them per-run. Works because `NIX_PATH` already maps
+  `nixpkgs=flake:nixpkgs`.
+- `ascii-logo-fonts [text...] [--font N] [--width N] [--out F] [--list]
+  [--no-omarchy]` — renders text in all 155 figlet fonts nixpkgs ships (plus the
+  Omarchy font via `ascii-logo-text`), each under a `=== name ===` header, so
+  you can pick one by eye. Same `nix-shell` shebang trick, for `figlet`. Written
+  here, not vendored. Use it because the Omarchy font is fixed and single-case —
+  `figlet` is the only way to get a *different* typeface, and the only way to get
+  digits or punctuation into a text logo at all.
+
+`braille` mode packs 2x4 pixels per cell (fine detail), `block` 1x2 (chunky, more
+readable at small sizes). Clear silhouettes transcode far better than photos.
+
+The two vendored scripts are unmodified upstream bar the shebang and the name
+in `--help`. None of the three need Omarchy installed — there is no `omarchy` dispatcher here, so call the
+scripts directly rather than as `omarchy ascii` / `omarchy transcode ascii`.
+
 ### Universal Copy/Paste (ported from Omarchy 4)
 `Super+C` / `Super+V` copy and paste in **every** app, so the terminal stops
 being the odd one out. Implemented in the UNIVERSAL COPY/PASTE

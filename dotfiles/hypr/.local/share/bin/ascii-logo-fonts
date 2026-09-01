@@ -1,0 +1,163 @@
+#!/usr/bin/env nix-shell
+#! nix-shell -i bash --packages figlet
+
+# Renders text in every figlet font nixpkgs ships (plus the Omarchy font, via
+# the sibling ascii-logo-text), so you can eyeball them all and pick one.
+#
+# figlet is not in nixos-config, hence the nix-shell shebang above.
+
+set -o pipefail
+
+usage() {
+  cat <<'EOF'
+Usage: ascii-logo-fonts [options] [text...]
+
+Renders text in every figlet font in nixpkgs, each under a `=== name ===`
+header, so you can pick one by eye. Reads the text from stdin when given none.
+
+Options:
+  -f, --font <name>    Render only this font (the name from a `===` header)
+  -w, --width <cols>   Wrap width passed to figlet (default: 200)
+  -o, --out <file>     Write to a file instead of stdout
+  -l, --list           List font names only, one per line
+      --no-omarchy     Skip the Delta Corps Priest 1 block at the top
+      --help           Show this help
+
+Examples:
+  ascii-logo-fonts kraeki > variants.txt
+  ascii-logo-fonts --font colossal kraeki
+  ascii-logo-fonts --list | grep -i banner
+EOF
+}
+
+width=200
+font=""
+out=""
+list=false
+omarchy=true
+words=()
+
+while (($# > 0)); do
+  case "$1" in
+  --help)
+    usage
+    exit 0
+    ;;
+  -f | --font)
+    shift
+    [[ -n ${1:-} ]] || { echo "Missing value for --font" >&2; exit 1; }
+    font="$1"
+    ;;
+  -w | --width)
+    shift
+    [[ -n ${1:-} ]] || { echo "Missing value for --width" >&2; exit 1; }
+    width="$1"
+    ;;
+  -o | --out)
+    shift
+    [[ -n ${1:-} ]] || { echo "Missing value for --out" >&2; exit 1; }
+    out="$1"
+    ;;
+  -l | --list)
+    list=true
+    ;;
+  --no-omarchy)
+    omarchy=false
+    ;;
+  --)
+    shift
+    words+=("$@")
+    break
+    ;;
+  -?*)
+    echo "Unknown option: $1" >&2
+    usage >&2
+    exit 1
+    ;;
+  *)
+    words+=("$1")
+    ;;
+  esac
+  shift
+done
+
+# figlet's fonts live beside the binary nix-shell just put on PATH, so resolve
+# the directory from that rather than globbing the store (which would also match
+# other figlet versions left over from earlier shells).
+font_dir=$(dirname "$(readlink -f "$(command -v figlet)")")/../share/figlet
+font_dir=$(cd "$font_dir" 2>/dev/null && pwd) || {
+  echo "Could not locate the figlet font directory" >&2
+  exit 1
+}
+
+fonts=()
+for f in "$font_dir"/*.flf; do
+  [[ -e $f ]] || continue
+  fonts+=("$(basename "$f" .flf)")
+done
+
+if ((${#fonts[@]} == 0)); then
+  echo "No figlet fonts found in $font_dir" >&2
+  exit 1
+fi
+
+if [[ $list == "true" ]]; then
+  printf '%s\n' "${fonts[@]}"
+  exit 0
+fi
+
+if ((${#words[@]} > 0)); then
+  text="${words[*]}"
+elif [[ ! -t 0 ]]; then
+  text=$(cat)
+else
+  usage >&2
+  exit 1
+fi
+
+if [[ -z ${text//[[:space:]]/} ]]; then
+  echo "Nothing to render" >&2
+  exit 1
+fi
+
+if [[ -n $font ]]; then
+  if [[ ! -f "$font_dir/$font.flf" ]]; then
+    echo "No such font: $font (try --list)" >&2
+    exit 1
+  fi
+  fonts=("$font")
+fi
+
+render() {
+  local n rendered
+
+  if [[ $omarchy == "true" && -z $font ]]; then
+    # The Omarchy font is embedded in ascii-logo-text, not a figlet font file,
+    # so it only shows up here if that sibling script is around.
+    local sibling="$(dirname "$(readlink -f "$0")")/ascii-logo-text"
+    if [[ -x $sibling ]]; then
+      printf '\n=== omarchy (Delta Corps Priest 1) ===\n\n'
+      "$sibling" "$text" 2>/dev/null || echo '  (no drawable characters)'
+    fi
+  fi
+
+  for n in "${fonts[@]}"; do
+    rendered=$(figlet -d "$font_dir" -f "$n" -w "$width" -- "$text" 2>/dev/null)
+    printf '\n=== %s ===\n\n' "$n"
+    # Some .flf files in the pack are chess/wall charts rather than alphabets
+    # and render to nothing. Say so instead of leaving a bare header.
+    if [[ -z ${rendered//[[:space:]]/} ]]; then
+      echo '  (font produced no output for this text)'
+    else
+      printf '%s\n' "$rendered"
+    fi
+  done
+}
+
+if [[ -n $out ]]; then
+  mkdir -p "$(dirname "$out")"
+  render >"$out"
+  echo "Wrote $((${#fonts[@]} )) font(s) to $out"
+else
+  render
+fi
