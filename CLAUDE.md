@@ -88,11 +88,13 @@ This separation keeps system concerns distinct from user preferences and makes h
     dock↔undock on Hyprland: disabling a head drops it from the protocol list
     (Hyprland #1274), so undock never re-enables the internal panel.
 - Scripts location: `~/.local/share/bin/` (referenced as `$srcPath` in config)
-- Manual monitor overrides: `dotfiles/hypr/.config/hypr/bin/monitor-*.sh`
-  (`monitor-laptop-only.sh` = `Super+M`, forces eDP-1 on + Dells off;
-  `monitor-docked-home.sh` = force the docked layout). Both apply via
-  `hyprctl eval 'hl.monitor(...)'` and each sets `disabled=` explicitly, because
-  a mode/position rule alone does NOT clear a previously-set `disabled` flag.
+- Manual monitor override: `dotfiles/hypr/.config/hypr/bin/monitor-docked-home.sh`
+  forces the docked layout. It applies via `hyprctl eval 'hl.monitor(...)'` and
+  sets `disabled=` explicitly, because a mode/position rule alone does NOT clear
+  a previously-set `disabled` flag. Its counterpart `monitor-laptop-only.sh`
+  (`Super+M`, eDP-1 on + Dells off) was **removed** along with its bind when
+  `Super+M` became the layout toggle; there is no longer a key that switches the
+  Dells off while docked.
 - `toggle-laptop-display [toggle|on|off|status] [-q]` in
   `dotfiles/hypr/.local/share/bin/` is the **single implementation** of "panel
   on/off" — `lid-close.sh` / `lid-open.sh` are now thin `--quiet` wrappers around
@@ -261,6 +263,26 @@ against `^#[0-9a-fA-F]{6}$`, so an **inline** comment
 disappear from `cliamp theme list` — no error, it is just gone. Full-line
 comments are fine. Verify a theme edit with `cliamp theme list` before trusting it.
 
+### Workspace Layouts
+`Super+M` runs `toggle-workspace-layout [toggle|dwindle|scrolling|status] [-q]`
+in `dotfiles/hypr/.local/share/bin/`.
+
+- **`scrolling` is built into Hyprland** (0.56 has it). It is NOT the
+  `hyprscrolling` plugin, and nothing needs installing — worth stating because
+  nixpkgs' `hyprlandPlugins.hyprscroller` is now a removal stub pointing at
+  `hyprscrolling`, which nixpkgs does not package, and that trail wrongly
+  suggests a plugin is required. `hyprctl layouts` is not a valid request, so
+  there is no way to list the built-in layouts and confirm; just set one.
+- Applied **per workspace** with `hl.workspace_rule({ workspace = N, layout =
+  ... })`, not the global `general:layout`, so one workspace can scroll while the
+  rest stay dwindle. `hyprctl activeworkspace -j` exposes the current one as
+  `.tiledLayout`. Same approach as Omarchy's
+  `omarchy-hyprland-workspace-layout-toggle` (their bind is `Super+L`).
+- **Not persisted**: `hyprctl reload` (`Super+Shift+R`) re-runs `hyprland.lua`,
+  which declares no workspace rules, so everything reverts to dwindle. Omarchy
+  writes each rule into a state dir and re-sources it on reload — that is the
+  piece to port if it becomes annoying.
+
 ### Launcher System
 Uses `vicinae` as the primary application launcher:
 - Started as server: `vicinae server` in Hyprland exec-once
@@ -340,7 +362,7 @@ Uses TLP (not power-profiles-daemon) with aggressive battery optimization:
 - **Super+Print**: Color picker (hyprpicker)
 - **Super+Ctrl+Print**: Extract text from a region (OCR)
 - **Super+Shift+Print**: Decode a QR code from a region
-- **Super+M**: Toggle laptop-only monitor mode
+- **Super+M**: Toggle the active workspace between dwindle and scrolling layout
 - **Super+Backspace**: Toggle the laptop panel on/off (`toggle-laptop-display`)
 - **Super+Ctrl+Backspace**: Toggle presentation mirroring (`toggle-display-mirror`)
   - Backspace, not Delete: the Magic Keyboard's `delete` key emits KEY_BACKSPACE

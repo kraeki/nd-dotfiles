@@ -1,0 +1,68 @@
+#!/bin/sh
+# Toggle the ACTIVE WORKSPACE between the dwindle and scrolling tiling layouts.
+#
+# Usage: toggle-workspace-layout [toggle|dwindle|scrolling|status] [-q|--quiet]
+#
+# `scrolling` is BUILT INTO Hyprland (0.56 has it) — it is not the hyprscrolling
+# plugin, and nothing needs installing. Note `hyprctl layouts` does not exist as
+# a request, so there is no way to list the built-in layouts; the check is simply
+# whether the workspace rule takes.
+#
+# Per-workspace via hl.workspace_rule rather than the global general:layout, so
+# one workspace can scroll while the rest stay dwindle. Same approach as Omarchy's
+# omarchy-hyprland-workspace-layout-toggle.
+#
+# NOT PERSISTED: `hyprctl reload` (Super+Shift+R) re-runs hyprland.lua, which
+# defines no workspace rules, so every workspace returns to dwindle. Omarchy
+# writes each rule to a state dir and re-sources it on reload; that is the piece
+# to port if this starts to annoy.
+
+action="toggle"
+quiet=""
+
+for arg in "$@"; do
+	case "$arg" in
+	toggle | dwindle | scrolling | status) action="$arg" ;;
+	-q | --quiet) quiet=1 ;;
+	-h | --help)
+		sed -n '2,4p' "$0" | sed 's/^# \{0,1\}//'
+		exit 0
+		;;
+	*)
+		echo "toggle-workspace-layout: unknown argument '$arg'" >&2
+		exit 2
+		;;
+	esac
+done
+
+ws="$(hyprctl activeworkspace -j | jq -r '.id')"
+case "$ws" in
+'' | *[!0-9-]*)
+	echo "toggle-workspace-layout: no numeric active workspace ('$ws')" >&2
+	exit 1
+	;;
+esac
+
+current="$(hyprctl activeworkspace -j | jq -r '.tiledLayout // "dwindle"')"
+
+case "$action" in
+status)
+	echo "$current"
+	exit 0
+	;;
+dwindle | scrolling) new="$action" ;;
+toggle)
+	case "$current" in
+	dwindle) new="scrolling" ;;
+	*) new="dwindle" ;;
+	esac
+	;;
+esac
+
+[ "$new" = "$current" ] && exit 0
+
+hyprctl eval "hl.workspace_rule({ workspace = \"$ws\", layout = \"$new\" })" >/dev/null || exit 1
+
+[ -n "$quiet" ] || notify-send -a "Layout" -i view-grid \
+	"Workspace $ws" "Layout: $new"
+exit 0

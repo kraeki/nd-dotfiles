@@ -293,9 +293,18 @@ hl.on("layer.closed", function(layer)
     selectionBinds = {}
 end)
 
--- Monitor control
-hl.bind(mainMod .. " + M", hl.dsp.exec_cmd(home .. "/.config/hypr/bin/monitor-laptop-only.sh"))
+-- Tiling layout of the ACTIVE WORKSPACE: dwindle <-> scrolling. `scrolling` is
+-- built into Hyprland (0.56) — it is NOT the hyprscrolling plugin and needs
+-- nothing installed. Per-workspace via hl.workspace_rule, so one workspace can
+-- scroll while the rest stay dwindle; not persisted across hyprctl reload.
+--
+-- Super+M previously ran monitor-laptop-only.sh (eDP-1 on, Dells off); that bind
+-- and script are both gone. The panel is Super+Backspace below, and
+-- monitor-docked-home.sh survives as the manual docked-layout recovery path.
+hl.bind(mainMod .. " + M", hl.dsp.exec_cmd(srcPath .. "/toggle-workspace-layout"),
+    { description = "Toggle workspace layout dwindle/scrolling" })
 
+-- Monitor control
 -- Laptop panel on/off, and presentation mirroring (externals show a copy of the
 -- panel), one modifier apart.
 --
