@@ -1,0 +1,47 @@
+#!/usr/bin/env python3
+"""Convert a half-block ASCII mark into an exact SVG.
+
+The Omarchy figlet font (Delta Corps Priest 1) draws with three glyphs only —
+U+2588 FULL BLOCK, U+2580 UPPER HALF, U+2584 LOWER HALF — so every cell maps to
+a rectangle with no approximation. Terminal cells are twice as tall as they are
+wide, which is the aspect the font is drawn for, so one cell is 1x2 user units.
+
+    ./ascii-to-svg logo.txt logo.svg [#rrggbb]
+"""
+import sys
+
+src, dst = sys.argv[1], sys.argv[2]
+fill = sys.argv[3] if len(sys.argv) > 3 else "#94e2d5"
+
+rows = open(src, encoding="utf-8").read().rstrip("\n").split("\n")
+cols = max(len(r) for r in rows)
+CW, CH = 1, 2  # cell size in user units
+
+# (y offset, height) within the cell, by glyph
+SPAN = {"█": (0, CH), "▀": (0, CH // 2), "▄": (CH // 2, CH // 2)}
+
+rects = []
+for y, row in enumerate(rows):
+    run = None  # [x_start, x_end, y, h]
+    for x, ch in enumerate(list(row) + [" "]):
+        span = SPAN.get(ch)
+        if run and (not span or (run[2], run[3]) != (y * CH + span[0], span[1])):
+            rects.append(run)
+            run = None
+        if span:
+            if run:
+                run[1] = x + 1
+            else:
+                run = [x, x + 1, y * CH + span[0], span[1]]
+    if run:
+        rects.append(run)
+
+body = "\n".join(
+    '  <rect x="%d" y="%d" width="%d" height="%d"/>' % (x0 * CW, y, (x1 - x0) * CW, h)
+    for x0, x1, y, h in rects
+)
+open(dst, "w", encoding="utf-8").write(
+    '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 %d %d" width="%d" height="%d" fill="%s">\n'
+    "  <!-- Generated from %s by ./ascii-to-svg. Do not edit by hand. -->\n%s\n</svg>\n"
+    % (cols * CW, len(rows) * CH, cols * CW * 8, len(rows) * CH * 8, fill, src, body)
+)

@@ -179,6 +179,42 @@ The two vendored scripts are unmodified upstream bar the shebang and the name
 in `--help`. None of the three need Omarchy installed — there is no `omarchy` dispatcher here, so call the
 scripts directly rather than as `omarchy ascii` / `omarchy transcode ascii`.
 
+### Branding (ndos wordmark)
+Ported from the `ndos` repo (`~/work/ndos`, branch
+`claude/linux-setup-architecture-k1j16h`, commits `e76088b` + `0a81ea2`), then
+reworked to use the Omarchy ASCII wordmark instead of its hand-drawn terminal
+mark. Assets live in `nixos-config/branding/` — **not** the repo root, as they do
+upstream, because the flake root here is `nixos-config/` and Nix cannot reach
+paths outside it.
+
+`branding/logo.txt` is the master: `ascii-logo-text NDOS`, i.e. Delta Corps
+Priest 1 in Catppuccin Mocha teal, with a peach `❯`. Everything else derives
+from it:
+- `branding/ascii-to-svg` generates `logo.svg`. The font draws with **only**
+  `█` `▀` `▄`, so every cell maps to a rectangle with no approximation —
+  rasterising the SVG back to the 44x16 half-cell grid reproduces the ASCII
+  pixel for pixel. Hence generated, not traced; do not hand-edit `logo.svg`.
+  One cell is 1x2 user units, the aspect the font is drawn for.
+- `nixos-config/branding.nix` (imported from `flake.nix`) enables Plymouth with
+  the logo rendered from the SVG at build time via `rsvg-convert`, and adds
+  `quiet`. It is **unconditional** — upstream gates it on `nd.branding.enable`,
+  but there is no `nd.*` option namespace here, so drop the import to get the
+  full text boot back.
+- `branding/mk-wallpaper` regenerates
+  `dotfiles/hypr/.config/hypr/wallpapers/nd.png` (mark at 10% opacity on the
+  Mocha base), picked up by the existing wpaperd rotation.
+- `dotfiles/fastfetch/` is the shell greeting — the wordmark with fastfetch's
+  `$1`/`$2` color markers. Nothing auto-runs it; `fastfetch` was already in
+  `systemPackages`.
+- `hyprlock.conf` gets a dim teal `ndos ❯` **text** label, not the wordmark:
+  hyprlock labels are single-line, so eight rows of ASCII do not fit.
+
+**Render sizes must be whole multiples of the 44-cell grid** (528px for
+Plymouth, 1012px for the wallpaper). Off-grid, cell edges land on fractional
+pixels and rsvg antialiases visible hairline seams between the rects making up
+each glyph — 512px does this. Check with a histogram: a clean render over a flat
+background has exactly two colors.
+
 ### Universal Copy/Paste (ported from Omarchy 4)
 `Super+C` / `Super+V` copy and paste in **every** app, so the terminal stops
 being the odd one out. Implemented in the UNIVERSAL COPY/PASTE

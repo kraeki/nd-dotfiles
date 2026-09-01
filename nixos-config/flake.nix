@@ -32,6 +32,7 @@
             nixos-hardware.nixosModules.framework-amd-ai-300-series
             ./hosts/naptop/configuration.nix
             ./theme.nix
+            ./branding.nix
             { nixpkgs.config.allowUnfree = true; }
           ];
         };

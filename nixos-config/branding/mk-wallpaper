@@ -1,0 +1,17 @@
+#!/usr/bin/env nix-shell
+#!nix-shell -i bash --packages imagemagick librsvg
+# Regenerate the branded wallpaper from the vector mark.
+#   ./mk-wallpaper ../../dotfiles/hypr/.config/hypr/wallpapers/nd.png [W H]
+set -euo pipefail
+out=${1:?usage: mk-wallpaper <out.png> [width height]}
+W=${2:-2560}; H=${3:-1600}
+tmp=$(mktemp -d); trap 'rm -rf "$tmp"' EXIT
+# Mark at ~40% of the canvas width, dimmed onto the Catppuccin Mocha base.
+# Snapped to a whole multiple of the 44-cell grid: off-grid widths make rsvg
+# antialiase hairline seams between the rects that make up the glyphs.
+cells=$(head -1 "$(dirname "$0")/logo.txt" | wc -L)
+mark=$(( (W * 2 / 5 / cells) * cells ))
+rsvg-convert -w "$mark" "$(dirname "$0")/logo.svg" -o "$tmp/mark.png"
+magick -size "${W}x${H}" xc:'#1e1e2e' \
+  \( "$tmp/mark.png" -alpha set -channel A -evaluate multiply 0.10 +channel \) \
+  -gravity center -composite -depth 8 "$out"
