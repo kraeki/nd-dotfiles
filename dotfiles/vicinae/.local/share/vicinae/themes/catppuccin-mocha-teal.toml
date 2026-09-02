@@ -1,0 +1,29 @@
+# Catppuccin Mocha, re-accented to teal.
+#
+# The system theme is Mocha with a *teal* accent (GTK catppuccin-mocha-teal-standard,
+# Colloid teal icons, teal cursor), but vicinae's bundled catppuccin-mocha accents
+# with Mocha blue #89B4FA. This inherits that theme and overrides only what carries
+# the accent, so palette updates upstream still flow through.
+#
+# Unlike the cliamp theme, real Catppuccin teal #94E2D5 is safe here: vicinae draws
+# accent_foreground on top of accent, so the selection is dark-on-teal rather than
+# the light-on-teal that made cliamp's key chips unreadable.
+
+[meta]
+name = "Catppuccin Mocha Teal"
+description = "The Original, re-accented to teal to match the system GTK, icon and cursor themes."
+variant = "dark"
+inherits = "catppuccin-mocha"
+
+[colors.core]
+accent = "#94E2D5"            # Teal (was Blue #89B4FA)
+accent_foreground = "#1E1E2E" # Base — dark text on the teal fill
+
+# The inherited selection/border tints are mixed with blue; re-mix them with the
+# same strength of teal so nothing reads as a leftover of the old accent.
+[colors.list.item.selection]
+background = "#3B4F5C"
+secondary_background = "#333F46"
+
+[colors.grid.item]
+background = "#334B52"

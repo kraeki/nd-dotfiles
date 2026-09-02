@@ -355,6 +355,27 @@ Uses `vicinae` as the primary application launcher:
 - Config: `dotfiles/vicinae/.config/vicinae/settings.json`
 - Includes NixOS package search provider (`ns` alias)
 
+**Themes do NOT live under `.config`.** vicinae discovers them in
+`~/.local/share/vicinae/themes/` (XDG_DATA_HOME), so the stow package spans two
+trees: `.config/vicinae/settings.json` and
+`.local/share/vicinae/themes/*.toml`. A theme in `.config/vicinae/themes/` is
+silently ignored — `vicinae theme set <id>` just reports "theme with id ... does
+not exist".
+
+`catppuccin-mocha-teal.toml` re-accents the bundled `catppuccin-mocha`, which
+uses Mocha *blue* `#89B4FA` while the rest of the system is Mocha **teal**. It
+`inherits = "catppuccin-mocha"` and overrides only the accent plus the three
+blue-mixed selection/grid tints, so upstream palette fixes still flow through.
+Real Catppuccin teal `#94E2D5` is safe here — vicinae draws `accent_foreground`
+(dark) on the accent fill, so selections are dark-on-teal. This is the opposite
+of the cliamp trap, where accent doubled as a chip fill under *light* labels.
+
+Changing the theme needs a **server restart**, not just `vicinae theme set`:
+the CLI persists the name into `settings.json` and returns success, but the
+running server keeps rendering the old palette. `vicinae server --replace`
+(plain `vicinae server` refuses when one is already running). Same restart
+requirement as new XDG desktop entries.
+
 Rofi is still used for:
 - Window switcher (Super+Tab)
 - File explorer (Super+Shift+E)

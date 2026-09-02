@@ -9,7 +9,18 @@
 // Learn more about configuration at https://docs.vicinae.com/config
 
 {
+   "$schema": "https://vicinae.com/schemas/config.json",
+   "theme": {
+      "dark": {
+         "name": "catppuccin-mocha-teal"
+      }
+   },
    "providers": {
+      "@dagimg-dot/store.vicinae.wifi-commander": {
+         "preferences": {
+            "network-cli-tool": "nmcli"
+         }
+      },
       "@knoopx/store.vicinae.nix": {
          "entrypoints": {
             "packages": {
@@ -21,6 +32,12 @@
          "preferences": {
             "browserCommand": "google-chrome-stable --new-window",
             "clientId": "1086849251922-3dte4kacqm1lv4brpbdoud7spi9psbto.apps.googleusercontent.com"
+         }
+      },
+      "@marcjulian/store.raycast.obsidian": {
+         "preferences": {
+            "configFileName": ".obsidian",
+            "vaultPath": "~/obsidian"
          }
       }
    }
