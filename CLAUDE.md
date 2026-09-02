@@ -16,7 +16,7 @@ Application-specific dotfiles organized in the `dotfiles/` subdirectory (e.g., `
 ### 2. NixOS Configuration (flake at repository root)
 - `flake.nix` - Flake exporting `nixosModules.default`, `homeManagerModules.default`, and host "naptop"
 - `modules/nixos/` - The system profile behind `nd.*` options (core, desktop, theme, networking, power, docker, gaming, locale, cache, branding). Import + `nd.enable = true` turns everything on; individual modules can be toggled (`nd.gaming.enable = false;`)
-- `branding/` - The nd mark (`logo.svg` vector master + README). Surfaces: Plymouth boot splash (rendered at build time), fastfetch greeting (`dotfiles/fastfetch/`), hyprlock label, branded wallpaper
+- `branding/` - The ndos wordmark (`logo.txt` master + generated `logo.svg`, `ascii-to-svg`, `mk-wallpaper`, README). Surfaces: Plymouth boot splash (rendered at build time), fastfetch greeting (`dotfiles/fastfetch/`), hyprlock label, branded wallpaper
 - `overlays/` - Shared overlays (waybar Hyprland-IPC pin), used by both the desktop module and the flake's `packages` output
 - `.github/workflows/build.yml` - CI: evaluates the full system per push; builds + pushes the custom packages (`.#waybar`, `.#handy`, ...) to Cachix once `CACHIX_CACHE`/`CACHIX_AUTH_TOKEN` are configured
 - `modules/home/` - Home-manager profile behind `nd.*` options (shell, chrome)
@@ -189,26 +189,19 @@ in `--help`. None of the three need Omarchy installed — there is no `omarchy` 
 scripts directly rather than as `omarchy ascii` / `omarchy transcode ascii`.
 
 ### Branding (ndos wordmark)
-Ported from the `ndos` repo (`~/work/ndos`, branch
-`claude/linux-setup-architecture-k1j16h`, commits `e76088b` + `0a81ea2`), then
-reworked to use the Omarchy ASCII wordmark instead of its hand-drawn terminal
-mark. Assets live in `nixos-config/branding/` — **not** the repo root, as they do
-upstream, because the flake root here is `nixos-config/` and Nix cannot reach
-paths outside it.
-
-`branding/logo.txt` is the master: `ascii-logo-text NDOS`, i.e. Delta Corps
-Priest 1 in Catppuccin Mocha teal, with a peach `❯`. Everything else derives
-from it:
+The wordmark is the Omarchy ASCII mark: `ascii-logo-text NDOS`, i.e. Delta
+Corps Priest 1 in Catppuccin Mocha teal, with a peach `❯`. Assets live in
+`branding/` at the repo root; `branding/logo.txt` is the master and everything
+else derives from it:
 - `branding/ascii-to-svg` generates `logo.svg`. The font draws with **only**
   `█` `▀` `▄`, so every cell maps to a rectangle with no approximation —
   rasterising the SVG back to the 44x16 half-cell grid reproduces the ASCII
   pixel for pixel. Hence generated, not traced; do not hand-edit `logo.svg`.
   One cell is 1x2 user units, the aspect the font is drawn for.
-- `nixos-config/branding.nix` (imported from `flake.nix`) enables Plymouth with
-  the logo rendered from the SVG at build time via `rsvg-convert`, and adds
-  `quiet`. It is **unconditional** — upstream gates it on `nd.branding.enable`,
-  but there is no `nd.*` option namespace here, so drop the import to get the
-  full text boot back.
+- `modules/nixos/branding.nix` (`nd.branding.enable`, follows `nd.enable`)
+  enables Plymouth with the logo rendered from the SVG at build time via
+  `rsvg-convert`, and adds `quiet`. Set `nd.branding.enable = false;` to get
+  the full text boot back.
 - `branding/mk-wallpaper` regenerates
   `dotfiles/hypr/.config/hypr/wallpapers/nd.png` (mark at 10% opacity on the
   Mocha base), picked up by the existing wpaperd rotation.
