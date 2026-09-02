@@ -30,7 +30,9 @@ in
     # Always start Claude Code in bypass-permissions mode.
     # ~/.claude/settings.json already sets skipDangerousModePermissionPrompt,
     # so this starts straight into the session without the confirmation screen.
-    claude = "claude --dangerously-skip-permissions";
+    # Named `c` rather than shadowing `claude`, so the bare command still
+    # runs with normal permission prompts when that is what you want.
+    c = "claude --dangerously-skip-permissions";
   };
 
   home.packages = with pkgs; [

@@ -1,10 +1,8 @@
 # naptop (Framework 13, Ryzen AI 300) disk layout for a wipe-and-reinstall
 # (disko / nixos-anywhere). Mirrors what the machine runs today: GPT, ESP at
-# /boot, LUKS2 ext4 root, plus a LUKS-encrypted swap partition (the FW13
-# install has one — the live scan can't reveal its size, so adjust `size`
-# below to the real value before the first reinstall). LUKS passphrase at
-# install time comes from the file named in `passwordFile` — see
-# "Bare-metal reinstall" in the README.
+# /boot, LUKS2 ext4 root, plus a LUKS-encrypted swap partition sized for
+# hibernation. LUKS passphrase at install time comes from the file named in
+# `passwordFile` — see "Bare-metal reinstall" in the README.
 #
 # IMPORTANT — two modes:
 #   * Today (enableConfig = false below): this layout is documentation +
@@ -40,7 +38,9 @@
           };
         };
         swap = {
-          size = "32G";  # ← set to the machine's real swap size before reinstalling
+          # Matches the live machine (~33.7G — sized above the 30G RAM so a
+          # hibernation image always fits; see the resume setup in default.nix).
+          size = "34G";
           content = {
             type = "luks";
             name = "cryptswap";
