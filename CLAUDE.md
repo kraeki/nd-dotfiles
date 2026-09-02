@@ -4,7 +4,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Repository Overview
 
-This is a personal dotfiles repository for a NixOS system with Hyprland window manager. It uses GNU Stow for managing dotfiles and NixOS flakes for system configuration.
+This is a personal dotfiles repository for a NixOS system with Hyprland window manager. It uses GNU Stow for managing dotfiles and NixOS flakes for system configuration. The NixOS side is organized as a module library ("the distro") consumed by thin host configs — see `docs/ARCHITECTURE.md` for the roadmap.
 
 ## Repository Structure
 
@@ -13,12 +13,17 @@ The repository has two main configuration approaches:
 ### 1. Stow-Managed Dotfiles
 Application-specific dotfiles organized in the `dotfiles/` subdirectory (e.g., `dotfiles/hypr/`, `dotfiles/nvim/`, `dotfiles/waybar/`). Each directory contains the `.config/` hierarchy that gets symlinked to `$HOME` via Stow.
 
-### 2. NixOS Configuration
-The `nixos-config/` directory at repository root contains:
-- `flake.nix` - NixOS flake configuration for host "naptop"
-- `hosts/naptop/configuration.nix` - System-level packages and services
-- `home/kraeki/home.nix` - User-level packages managed by home-manager
-- `theme.nix` - Catppuccin Mocha theme configuration
+### 2. NixOS Configuration (flake at repository root)
+- `flake.nix` - Flake exporting `nixosModules.default`, `homeManagerModules.default`, and host "naptop"
+- `modules/nixos/` - The system profile behind `nd.*` options (core, desktop, theme, networking, power, docker, gaming, locale, cache, branding). Import + `nd.enable = true` turns everything on; individual modules can be toggled (`nd.gaming.enable = false;`)
+- `branding/` - The ndos wordmark (`logo.txt` master + generated `logo.svg`, `ascii-to-svg`, `mk-wallpaper`, README). Surfaces: Plymouth boot splash (rendered at build time), fastfetch greeting (`dotfiles/fastfetch/`), hyprlock label, branded wallpaper
+- `overlays/` - Shared overlays (waybar Hyprland-IPC pin), used by both the desktop module and the flake's `packages` output
+- `.github/workflows/build.yml` - CI: evaluates the full system per push; builds + pushes the custom packages (`.#waybar`, `.#handy`, ...) to Cachix once `CACHIX_CACHE`/`CACHIX_AUTH_TOKEN` are configured
+- `modules/home/` - Home-manager profile behind `nd.*` options (shell, chrome)
+- `hosts/naptop/` - This machine only: hardware config, boot/kernel quirks (Framework 13 Ryzen AI 300), ROCm ollama, its user account, `system.stateVersion`, and `disko.nix` (declarative disk layout for nixos-anywhere reinstalls — inert on the running system, see its mode notes)
+- `hosts/naptop-old/` - The previous Framework 16 (Ryzen 7040), preserved buildable (hostname stays "naptop"; runs without uwsm, mirroring the archived config)
+- `users/kraeki/home.nix` - Personal home config: packages, aliases, syncthing
+- `pkgs/` - Custom packages not in nixpkgs (herdr, tldraw-offline), used via `pkgs.callPackage`
 
 ## Common Commands
 
@@ -33,9 +38,8 @@ make delete
 
 ### NixOS System Management
 ```bash
-# Rebuild and switch to new NixOS configuration
-cd nixos-config
-sudo nixos-rebuild switch --flake .#naptop
+# Rebuild and switch to new NixOS configuration (from repo root)
+sudo nixos-rebuild switch --flake .#naptop     # or: make switch
 
 # Test configuration without switching
 sudo nixos-rebuild test --flake .#naptop
@@ -46,21 +50,26 @@ sudo nixos-rebuild build --flake .#naptop
 
 ### Flakes
 ```bash
-# Update all flake inputs
-cd nixos-config
+# Update all flake inputs (from repo root)
 nix flake update
 
 # Update specific input
 nix flake lock --update-input nixpkgs
 ```
 
+### Bootstrap a fresh machine
+```bash
+curl -sL https://raw.githubusercontent.com/kraeki/nd-dotfiles/main/install.sh | bash
+```
+Interactive (gum): pick an existing host, or "new machine" to probe hardware via `nixos-generate-config` and generate `hosts/<name>/` + `users/<name>/home.nix`. The flake auto-discovers every directory under `hosts/`, so new hosts need no flake edit. `ND_HOST=<host>` skips prompts.
+
 ## Key Architecture Details
 
 ### Package Management Split
-- **System packages** (`environment.systemPackages` in `configuration.nix`): Core system tools, desktop environment components, CLI utilities
-- **User packages** (`home.packages` in `home.nix`): GUI applications, productivity tools, entertainment software
+- **System packages** (`environment.systemPackages` in `modules/nixos/*.nix`): Core system tools, desktop environment components, CLI utilities — each in the module it belongs to (host-specific hardware tools stay in `hosts/naptop/default.nix`)
+- **User packages** (`home.packages` in `users/kraeki/home.nix`): GUI applications, productivity tools, entertainment software
 
-This separation keeps system concerns distinct from user preferences and makes home-manager configuration portable.
+This separation keeps system concerns distinct from user preferences and makes home-manager configuration portable. When adding options, keep the discipline: identity-shaped config goes in `modules/` behind an `nd.*` option; only hardware truth and per-machine choices go in `hosts/`.
 
 ### Hyprland Configuration
 - Main config: `dotfiles/hypr/.config/hypr/hyprland.lua` (Hyprland 0.55+ Lua config)
@@ -180,26 +189,19 @@ in `--help`. None of the three need Omarchy installed — there is no `omarchy` 
 scripts directly rather than as `omarchy ascii` / `omarchy transcode ascii`.
 
 ### Branding (ndos wordmark)
-Ported from the `ndos` repo (`~/work/ndos`, branch
-`claude/linux-setup-architecture-k1j16h`, commits `e76088b` + `0a81ea2`), then
-reworked to use the Omarchy ASCII wordmark instead of its hand-drawn terminal
-mark. Assets live in `nixos-config/branding/` — **not** the repo root, as they do
-upstream, because the flake root here is `nixos-config/` and Nix cannot reach
-paths outside it.
-
-`branding/logo.txt` is the master: `ascii-logo-text NDOS`, i.e. Delta Corps
-Priest 1 in Catppuccin Mocha teal, with a peach `❯`. Everything else derives
-from it:
+The wordmark is the Omarchy ASCII mark: `ascii-logo-text NDOS`, i.e. Delta
+Corps Priest 1 in Catppuccin Mocha teal, with a peach `❯`. Assets live in
+`branding/` at the repo root; `branding/logo.txt` is the master and everything
+else derives from it:
 - `branding/ascii-to-svg` generates `logo.svg`. The font draws with **only**
   `█` `▀` `▄`, so every cell maps to a rectangle with no approximation —
   rasterising the SVG back to the 44x16 half-cell grid reproduces the ASCII
   pixel for pixel. Hence generated, not traced; do not hand-edit `logo.svg`.
   One cell is 1x2 user units, the aspect the font is drawn for.
-- `nixos-config/branding.nix` (imported from `flake.nix`) enables Plymouth with
-  the logo rendered from the SVG at build time via `rsvg-convert`, and adds
-  `quiet`. It is **unconditional** — upstream gates it on `nd.branding.enable`,
-  but there is no `nd.*` option namespace here, so drop the import to get the
-  full text boot back.
+- `modules/nixos/branding.nix` (`nd.branding.enable`, follows `nd.enable`)
+  enables Plymouth with the logo rendered from the SVG at build time via
+  `rsvg-convert`, and adds `quiet`. Set `nd.branding.enable = false;` to get
+  the full text boot back.
 - `branding/mk-wallpaper` regenerates
   `dotfiles/hypr/.config/hypr/wallpapers/nd.png` (mark at 10% opacity on the
   Mocha base), picked up by the existing wpaperd rotation.
@@ -372,7 +374,7 @@ Uses LazyVim as the base configuration:
 - Configuration modules in `lua/config/` and `lua/plugins/`
 
 ### Zsh Configuration
-- Managed by home-manager in `home.nix`
+- Managed by home-manager: shared setup in `modules/home/shell.nix`, personal aliases in `users/kraeki/home.nix`
 - Uses Oh-My-Zsh with Powerlevel10k theme
 - Plugins: zsh-autosuggestions, zsh-syntax-highlighting, git, per-directory-history
 - Shell configuration: `.zshrc.stow` (symlinked via Stow)
@@ -384,7 +386,7 @@ Uses LazyVim as the base configuration:
   - `nc` → Edit NixOS config
 
 ### Theme System
-Catppuccin Mocha with teal accent:
+Catppuccin Mocha with teal accent, configurable via `nd.theme.flavor` / `nd.theme.accent` in `modules/nixos/theme.nix`:
 - GTK theme: `catppuccin-mocha-teal-standard`
 - Icons: Colloid (teal), Numix Circle, Tela Circle Dracula
 - Cursor: Catppuccin Mocha Teal
@@ -401,13 +403,13 @@ Auto-started in Hyprland (`exec-once`):
 - `blueman-applet`, `nm-applet` - System tray
 
 ### Power Management
-Uses TLP (not power-profiles-daemon) with aggressive battery optimization:
-- USB autosuspend enabled
-- PCIe ASPM: powersupersave on battery
-- SATA ALPM: min_power on battery
-- CPU governor: powersave on battery with boost disabled
-- Battery charge thresholds: 75-80%
-- Platform profile: low-power on battery
+Uses power-profiles-daemon (not TLP — PPD is what AMD/Framework recommend for Ryzen 7040; TLP is explicitly disabled). Configured in `modules/nixos/power.nix`:
+- Laptop-mode sysctls (batched I/O, low swappiness, NMI watchdog off)
+- Zram (25%, zstd) as OOM safety net
+- upower thresholds: suspend at 5% battery
+- Clamshell docking: lid-close while docked does not suspend (Hyprland lid-switch binds handle the panel)
+- `amd_pstate=active` kernel param lives in `hosts/naptop` (hardware-specific)
+- Battery charge thresholds are set via `framework-tool`, not declaratively
 
 ## Common Keybindings
 
