@@ -348,6 +348,38 @@ in `dotfiles/hypr/.local/share/bin/`.
   writes each rule into a state dir and re-sources it on reload — that is the
   piece to port if it becomes annoying.
 
+### Monitor Scaling
+`Super+=` / `Super+-` (with or without Shift, so the labelled `+` / `-` work)
+run `step-monitor-scale [up|down|status|list|<scale>] [-q]` in
+`dotfiles/hypr/.local/share/bin/`, stepping the **focused** monitor's scale.
+
+Ported from Omarchy's `omarchy-hyprland-monitor-scaling-cycle`, which they
+expose as a menu entry rather than a keybind. Four changes:
+- `hyprctl keyword monitor` is rejected here; the rule goes through
+  `hyprctl eval 'hl.monitor({...})'`.
+- Upstream passes `position=auto`; that would reshuffle the docked layout on
+  every press, since the Dells are pinned at `0x0` / `1440x560`. The monitor's
+  current `x`/`y` is re-applied instead, and `transform` restated — otherwise
+  the portrait Dell snaps back to landscape (same trap as `disabled=` needing
+  an explicit clear).
+- The scale list (`1 1.25 1.333333 1.5 1.6 2 3 4`) is **filtered per monitor**
+  to those dividing the mode into whole logical pixels. Upstream's fixed list
+  produces dead keypresses: 3x on a 2560x1440 Dell is 853.33px, which Hyprland
+  refuses. `1.333333` is in the list because it is the eDP-1 default.
+- Steps **clamp** at both ends instead of wrapping, since these are two keys
+  rather than one cycle entry.
+
+Not persisted — `hyprctl reload` and any hotplug restore the declarative scale,
+same as `toggle-workspace-layout`.
+
+**`code:N` keycode binds do not work in the Lua config.** `hl.bind("SUPER +
+code:21", ...)` registers a bind whose `key` is empty and whose `keycode` is 0
+in `hyprctl binds`, so nothing can ever match it — while a keysym bind reports
+`key="equal"`. That is why these binds use `equal`/`minus` and move with the
+keyboard layout (CH puts `+` on Shift+1 and `-` where US has `/`). The
+`code:108` dictation bind has the same dead signature and is flagged in
+`hyprland.lua`; fixing it needs `Control_R` tested on the real keyboard.
+
 ### Launcher System
 Uses `vicinae` as the primary application launcher:
 - Started as server: `vicinae server` in Hyprland exec-once
@@ -463,6 +495,8 @@ TLP silently removed the cap and left the pack charging to 100%.
 - **Super+Ctrl+Print**: Extract text from a region (OCR)
 - **Super+Shift+Print**: Decode a QR code from a region
 - **Super+M**: Toggle the active workspace between dwindle and scrolling layout
+- **Super+= / Super+-** (Shift optional, so `+` / `-` work): Step the focused
+  monitor's scale up / down (`step-monitor-scale`)
 - **Super+Backspace**: Toggle the laptop panel on/off (`toggle-laptop-display`)
 - **Super+Ctrl+Backspace**: Toggle presentation mirroring (`toggle-display-mirror`)
   - Backspace, not Delete: the Magic Keyboard's `delete` key emits KEY_BACKSPACE

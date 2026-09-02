@@ -1,0 +1,139 @@
+#!/bin/sh
+# Step the FOCUSED monitor's scale through a list of sensible values.
+#
+# Usage: step-monitor-scale [up|down|status|list|<scale>] [-q|--quiet]
+#
+# Ported from Omarchy's omarchy-hyprland-monitor-scaling-cycle, with four
+# changes that this config forces:
+#
+# 1. `hyprctl keyword monitor` is REJECTED under the Hyprland 0.55+ Lua config.
+#    The rule goes through `hyprctl eval 'hl.monitor({...})'` instead.
+# 2. Omarchy passes position=auto. Here the declarative rules in hyprland.lua
+#    pin explicit positions (the Dells sit at 0x0 and 1440x560), so `auto` would
+#    reshuffle the docked layout on every keypress. The monitor's CURRENT x/y is
+#    re-applied instead. `transform` likewise has to be restated or a rotated
+#    monitor snaps back to landscape -- same trap as `disabled=` needing an
+#    explicit clear in monitor-docked-home.sh.
+# 3. The scale list is FILTERED per monitor to those that divide the mode into
+#    whole logical pixels. Omarchy's blind list contains steps that are invalid
+#    on a given panel -- 3x on the 2560x1440 Dells gives 853.33px, which
+#    Hyprland refuses -- so a fixed list produces dead keypresses. 1.333333 is
+#    in the list because it is this system's eDP-1 default (and GDK_SCALE).
+# 4. Steps CLAMP at both ends rather than wrapping, because this is bound to
+#    separate +/- keys rather than Omarchy's single cycle entry.
+#
+# Reads `hyprctl -j monitors all`, not `hyprctl monitors`: the latter omits
+# disabled AND mirrored outputs entirely (see toggle-display-mirror).
+#
+# NOT PERSISTED. `hyprctl reload` (Super+Shift+R), and any hotplug, re-applies
+# the declarative hl.monitor rules and so restores the configured scale. Omarchy
+# rewrites its monitors.conf to persist; the equivalent here would be a state
+# dir re-sourced on reload, same open item as toggle-workspace-layout.
+
+SCALES="1 1.25 1.333333 1.5 1.6 2 3 4"
+
+action="up"
+quiet=""
+explicit=""
+
+for arg in "$@"; do
+	case "$arg" in
+	up | down | status | list) action="$arg" ;;
+	-q | --quiet) quiet=1 ;;
+	-h | --help)
+		sed -n '2,4p' "$0" | sed 's/^# \{0,1\}//'
+		exit 0
+		;;
+	[0-9]*) action="set"; explicit="$arg" ;;
+	*)
+		echo "step-monitor-scale: unknown argument '$arg'" >&2
+		exit 2
+		;;
+	esac
+done
+
+mon="$(hyprctl -j monitors all | jq -c 'map(select(.focused == true and .disabled == false)) | .[0]')"
+if [ -z "$mon" ] || [ "$mon" = "null" ]; then
+	echo "step-monitor-scale: no focused monitor" >&2
+	exit 1
+fi
+
+name="$(printf '%s' "$mon" | jq -r '.name')"
+cur="$(printf '%s' "$mon" | jq -r '.scale')"
+
+# Scales that divide this mode into whole logical pixels. Hyprland rejects the
+# rest, so offering them would just burn a keypress.
+valid="$(printf '%s' "$mon" | jq -r --arg s "$SCALES" '
+  .width as $w | .height as $h
+  | ($s | split(" ") | map(tonumber))
+  | map(select(
+      ((($w / .) - (($w / .) | round)) | fabs) < 0.001 and
+      ((($h / .) - (($h / .) | round)) | fabs) < 0.001))
+  | join(" ")')"
+
+if [ -z "$valid" ]; then
+	echo "step-monitor-scale: no whole-pixel scale for $name" >&2
+	exit 1
+fi
+
+case "$action" in
+status)
+	echo "$cur"
+	exit 0
+	;;
+list)
+	echo "$valid"
+	exit 0
+	;;
+esac
+
+# Hyprland snaps fractional scales (1.333333 is reported back as 1.3333334), so
+# the current step is the nearest entry rather than an exact match.
+idx="$(printf '%s\n' "$valid" | awk -v c="$cur" '{
+  best = 0; bd = 1e9
+  for (i = 1; i <= NF; i++) { d = c - $i; if (d < 0) d = -d; if (d < bd) { bd = d; best = i } }
+  print best
+}')"
+count="$(printf '%s\n' "$valid" | awk '{print NF}')"
+
+case "$action" in
+up)   new_idx=$((idx + 1)); [ "$new_idx" -gt "$count" ] && new_idx="$count" ;;
+down) new_idx=$((idx - 1)); [ "$new_idx" -lt 1 ] && new_idx=1 ;;
+set)
+	new_idx="$(printf '%s\n' "$valid" | awk -v c="$explicit" '{
+	  best = 0; bd = 1e9
+	  for (i = 1; i <= NF; i++) { d = c - $i; if (d < 0) d = -d; if (d < bd) { bd = d; best = i } }
+	  print best
+	}')"
+	;;
+esac
+
+new="$(printf '%s\n' "$valid" | awk -v i="$new_idx" '{print $i}')"
+old="$(printf '%s\n' "$valid" | awk -v i="$idx" '{print $i}')"
+
+if [ "$new" = "$old" ]; then
+	[ -n "$quiet" ] || notify-send -a "Display" -i video-display -u low \
+		"$name" "Already at ${new}x (min ${valid%% *}, max ${valid##* })"
+	exit 0
+fi
+
+# Mode, position and transform all have to be restated: a rule that sets only
+# `scale` leaves the others to be re-derived, and the Dells have no EDID
+# preferred mode to fall back on (they drop to 1280x720).
+rule="$(printf '%s' "$mon" | jq -r --arg s "$new" '
+  "hl.monitor({ output = \"" + .name + "\""
+  + ", mode = \"" + (.width|tostring) + "x" + (.height|tostring)
+  + "@" + (.refreshRate * 100 | round / 100 | tostring) + "\""
+  + ", position = \"" + (.x|tostring) + "x" + (.y|tostring) + "\""
+  + ", scale = " + $s
+  + ", transform = " + (.transform|tostring)
+  + " })"')"
+
+if ! hyprctl eval "$rule" >/dev/null 2>&1; then
+	echo "step-monitor-scale: failed to apply $rule" >&2
+	exit 1
+fi
+
+[ -n "$quiet" ] || notify-send -a "Display" -i video-display -u low \
+	"$name" "Scale ${new}x"
+exit 0

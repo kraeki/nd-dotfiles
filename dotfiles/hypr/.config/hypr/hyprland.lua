@@ -321,6 +321,31 @@ hl.bind(mainMod .. " + Backspace",        hl.dsp.exec_cmd(srcPath .. "/toggle-la
 hl.bind(mainMod .. " + CTRL + Backspace", hl.dsp.exec_cmd(srcPath .. "/toggle-display-mirror"),
     { description = "Toggle laptop display mirroring" })
 
+-- Monitor scaling, one step per press on the focused monitor (Omarchy ships the
+-- same idea as a menu entry, omarchy-hyprland-monitor-scaling-cycle; the script
+-- notes what had to change). `status`/`list` are there for scripting.
+--
+-- Bound on the UNSHIFTED keysyms `equal` / `minus`, each also with SHIFT, so
+-- that both the labelled `+` / `-` (the shifted faces of those keys) and a plain
+-- Super+= / Super+- work. Hyprland matches the modifier mask exactly, so the
+-- SHIFT variants are not optional.
+--
+-- NOT bound by keycode, which would have been layout-proof — the CH layout on
+-- the Both-Shifts toggle puts `+` on Shift+1 and `-` where US has `/`, so these
+-- binds move with the layout. The Lua config gives no way to avoid that:
+-- hl.bind("SUPER + code:21", ...) does register a bind, but one whose key is
+-- EMPTY and whose keycode is 0 in `hyprctl binds` — it can never fire. Verified
+-- by probing it against hl.bind("... + equal", ...), which reports key="equal".
+-- The dictation bind further down has that same dead signature; see its note.
+hl.bind(mainMod .. " + equal",         hl.dsp.exec_cmd(srcPath .. "/step-monitor-scale up"),
+    { description = "Step monitor scaling up" })
+hl.bind(mainMod .. " + SHIFT + equal", hl.dsp.exec_cmd(srcPath .. "/step-monitor-scale up"),
+    { description = "Step monitor scaling up" })
+hl.bind(mainMod .. " + minus",         hl.dsp.exec_cmd(srcPath .. "/step-monitor-scale down"),
+    { description = "Step monitor scaling down" })
+hl.bind(mainMod .. " + SHIFT + minus", hl.dsp.exec_cmd(srcPath .. "/step-monitor-scale down"),
+    { description = "Step monitor scaling down" })
+
 -- Laptop lid (clamshell docking). switch:on = lid CLOSED, switch:off = lid OPEN
 -- (verified against Hyprland source). These touch ONLY eDP-1 — the Dells are
 -- handled by the declarative monitor rules on hotplug. `locked` is required so
@@ -340,6 +365,15 @@ hl.bind("switch:off:Lid Switch", hl.dsp.exec_cmd(home .. "/.config/hypr/bin/lid-
 -- so the physical right cmd emits Control_R at evdev keycode 100 (Hyprland
 -- code:108), NOT Super_R. Bind by keycode to stay immune to the keysym remap;
 -- consuming it also suppresses the stray Control_R.
+--
+-- WARNING: this bind is almost certainly DEAD under the Lua config. `code:N`
+-- registers a bind whose key is empty and whose keycode is 0 in `hyprctl binds`
+-- (verified by probe against a keysym bind, which reports its key properly), so
+-- there is nothing for a keypress to match. It survived the 0.55 Lua migration
+-- unnoticed because a silent bind looks identical to a working one until you
+-- press the key. Left as-is rather than fixed blind: the replacement has to be
+-- `Control_R`, and that needs testing on the actual keyboard, plus checking it
+-- does not swallow the remapped modifier everywhere else.
 hl.bind("code:108", hl.dsp.exec_cmd(srcPath .. "/dictation.sh"))
 
 -- Handy — offline push-to-talk speech-to-text (github.com/cjpais/Handy).
