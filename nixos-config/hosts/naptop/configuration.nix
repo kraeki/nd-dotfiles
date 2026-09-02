@@ -236,7 +236,7 @@
 
     # System tools
     lsof
-    htop
+    btop
     vim
     fd
     usbutils
