@@ -343,6 +343,20 @@ in `dotfiles/hypr/.local/share/bin/`.
   rest stay dwindle. `hyprctl activeworkspace -j` exposes the current one as
   `.tiledLayout`. Same approach as Omarchy's
   `omarchy-hyprland-workspace-layout-toggle` (their bind is `Super+L`).
+- **`scrolling.column_width = 0.49`**, not Hyprland's default `0.5`. At exactly
+  0.5 two columns fill the screen edge to edge, and since `focus_fit_method`
+  defaults to `1` ("fit" — scroll the minimum needed) the tape always lands
+  flush, so no part of the neighbouring columns is ever on screen and nothing
+  signals that the layout continues left or right. 0.49 leaves ~2% over, which
+  shows as a sliver of the adjacent columns at both edges. This is the single
+  scrolling tweak Omarchy makes (`default/hypr/looknfeel.lua`).
+- **Touchpad**: a 3-finger horizontal swipe scrolls the tape
+  (`action = "scroll_move"`); **workspace switching moved to 4 fingers**. The
+  single 3-finger workspace swipe this replaced fought the layout — swiping
+  sideways changed workspace instead of moving the tape. `scroll_move` is a
+  no-op off the scrolling layout and a gesture cannot branch on the active
+  layout, so the two had to be split across finger counts; the cost is that
+  3-finger does nothing on a dwindle workspace.
 - **Not persisted**: `hyprctl reload` (`Super+Shift+R`) re-runs `hyprland.lua`,
   which declares no workspace rules, so everything reverts to dwindle. Omarchy
   writes each rule into a state dir and re-sources it on reload — that is the

@@ -159,6 +159,15 @@ hl.config({
 
     dwindle = { preserve_split = true },
 
+    -- Scrolling layout (Super+M toggles the workspace into it). Hyprland's
+    -- default column_width = 0.5 makes exactly two columns fill the screen
+    -- edge to edge, so with focus_fit_method = 1 ("fit", the default) the tape
+    -- always lands flush and NOTHING of the neighbouring columns is ever
+    -- visible — the layout gives no hint that it continues left or right.
+    -- 0.49 (Omarchy's value, default/hypr/looknfeel.lua) leaves ~2% of the
+    -- width over, so a sliver of the adjacent columns peeks in at both edges.
+    scrolling = { column_width = 0.49 },
+
     misc = {
         vrr = 0,
         disable_hyprland_logo    = true,
@@ -185,8 +194,15 @@ hl.device({ name = "epic mouse V1", sensitivity = -0.5 })
 -- emoji paste and misfired into the rofi/cliphist keybinds.
 hl.device({ name = "vicinae-snippet-virtual-keyboard", kb_options = "" })
 
--- Touchpad gesture (was: gestures { gesture = 3, horizontal, workspace })
-hl.gesture({ fingers = 3, direction = "horizontal", action = "workspace" })
+-- Touchpad gestures. Originally a single 3-finger horizontal = workspace swipe
+-- (ported from gestures { gesture = 3, horizontal, workspace }), which fought the
+-- scrolling layout: swiping sideways in it changed workspace instead of moving
+-- the tape. `scroll_move` is Hyprland's action for that, but it is a no-op unless
+-- the workspace is on the scrolling layout, so it cannot simply replace the swipe
+-- — hence the split. NOTE: on a dwindle workspace the 3-finger swipe therefore
+-- does NOTHING; workspace switching is on 4 fingers everywhere.
+hl.gesture({ fingers = 3, direction = "horizontal", action = "scroll_move" })
+hl.gesture({ fingers = 4, direction = "horizontal", action = "workspace" })
 
 ----------------------------------------------------------------------
 -- KEYBINDINGS
