@@ -209,49 +209,50 @@ hl.gesture({ fingers = 4, direction = "horizontal", action = "workspace" })
 ----------------------------------------------------------------------
 
 -- Reload
-hl.bind(mainMod .. " + SHIFT + R", hl.dsp.exec_cmd("hyprctl reload"))
+hl.bind(mainMod .. " + SHIFT + R", hl.dsp.exec_cmd("hyprctl reload"), { description = "Reload Hyprland config" })
 
 -- Window / session actions
-hl.bind(mainMod .. " + Q",            hl.dsp.window.close())
+hl.bind(mainMod .. " + Q",            hl.dsp.window.close(), { description = "Close window" })
 -- Session-exit binds were REMOVED: Super+Delete (hl.dsp.exit — kill the session
 -- outright) as too easy to hit by accident, and Super+Backspace, which pointed at
 -- $srcPath/logoutlaunch.sh — a script that does not exist in this repo and never
 -- did (no git history for it), so the bind was silently dead. Both keys now drive
 -- the display toggles below. There is NO logout keybind; use loginctl.
-hl.bind(mainMod .. " + T",           hl.dsp.window.float({ action = "toggle" }))
-hl.bind(mainMod .. " + CTRL + Space", hl.dsp.window.float({ action = "toggle" }))  -- alias
-hl.bind(mainMod .. " + G",            hl.dsp.group.toggle())
-hl.bind(mainMod .. " + F",            hl.dsp.window.fullscreen({ mode = "fullscreen" }))
-hl.bind(mainMod .. " + Escape",       hl.dsp.exec_cmd("hyprlock"))
-hl.bind("CTRL + ALT + W",             hl.dsp.exec_cmd("killall waybar || waybar"))
+hl.bind(mainMod .. " + T",           hl.dsp.window.float({ action = "toggle" }), { description = "Toggle floating" })
+hl.bind(mainMod .. " + CTRL + Space", hl.dsp.window.float({ action = "toggle" }), { description = "Toggle floating (alias)" })
+hl.bind(mainMod .. " + G",            hl.dsp.group.toggle(), { description = "Toggle window group" })
+hl.bind(mainMod .. " + F",            hl.dsp.window.fullscreen({ mode = "fullscreen" }), { description = "Toggle fullscreen" })
+hl.bind(mainMod .. " + Escape",       hl.dsp.exec_cmd("hyprlock"), { description = "Lock screen" })
+hl.bind("CTRL + ALT + W",             hl.dsp.exec_cmd("killall waybar || waybar"), { description = "Restart Waybar" })
 
 -- Application shortcuts
-hl.bind(mainMod .. " + Return",         hl.dsp.exec_cmd(term))
-hl.bind(mainMod .. " + SHIFT + Return", hl.dsp.exec_cmd(srcPath .. "/browser-launcher.sh"))
-hl.bind(mainMod .. " + E",              hl.dsp.exec_cmd(fileMgr))
+hl.bind(mainMod .. " + Return",         hl.dsp.exec_cmd(term), { description = "Open terminal" })
+hl.bind(mainMod .. " + SHIFT + Return", hl.dsp.exec_cmd(srcPath .. "/browser-launcher.sh"), { description = "Open browser" })
+hl.bind(mainMod .. " + E",              hl.dsp.exec_cmd(fileMgr), { description = "Open file manager" })
 hl.bind("CTRL + SHIFT + Escape",        hl.dsp.exec_cmd(srcPath .. "/sysmonlaunch.sh",
-                                            { float = true, size = { 800, 500 }, center = true }))
+                                            { float = true, size = { 800, 500 }, center = true }),
+                                        { description = "Open system monitor" })
 
 -- Launchers / menus
-hl.bind(mainMod .. " + Space",     hl.dsp.exec_cmd("vicinae toggle"))
-hl.bind(mainMod .. " + Tab",       hl.dsp.exec_cmd("pkill -x rofi || " .. srcPath .. "/rofi-launcher.sh w"))
-hl.bind(mainMod .. " + SHIFT + E", hl.dsp.exec_cmd("pkill -x rofi || " .. srcPath .. "/rofi-launcher.sh f"))
+hl.bind(mainMod .. " + Space",     hl.dsp.exec_cmd("vicinae toggle"), { description = "Open app launcher (vicinae)" })
+hl.bind(mainMod .. " + Tab",       hl.dsp.exec_cmd("pkill -x rofi || " .. srcPath .. "/rofi-launcher.sh w"), { description = "Switch window (rofi)" })
+hl.bind(mainMod .. " + SHIFT + E", hl.dsp.exec_cmd("pkill -x rofi || " .. srcPath .. "/rofi-launcher.sh f"), { description = "Browse files (rofi)" })
 
 -- Audio control (locked = works on lockscreen; repeating = autorepeat while held)
-hl.bind("XF86AudioMute",        hl.dsp.exec_cmd(srcPath .. "/volumecontrol.sh -o m"), { locked = true })
-hl.bind("XF86AudioMicMute",     hl.dsp.exec_cmd(srcPath .. "/volumecontrol.sh -i m"), { locked = true })
-hl.bind("XF86AudioLowerVolume", hl.dsp.exec_cmd(srcPath .. "/volumecontrol.sh -o d"), { locked = true, repeating = true })
-hl.bind("XF86AudioRaiseVolume", hl.dsp.exec_cmd(srcPath .. "/volumecontrol.sh -o i"), { locked = true, repeating = true })
+hl.bind("XF86AudioMute",        hl.dsp.exec_cmd(srcPath .. "/volumecontrol.sh -o m"), { locked = true , description = "Mute output" })
+hl.bind("XF86AudioMicMute",     hl.dsp.exec_cmd(srcPath .. "/volumecontrol.sh -i m"), { locked = true , description = "Mute microphone" })
+hl.bind("XF86AudioLowerVolume", hl.dsp.exec_cmd(srcPath .. "/volumecontrol.sh -o d"), { locked = true, repeating = true , description = "Volume down" })
+hl.bind("XF86AudioRaiseVolume", hl.dsp.exec_cmd(srcPath .. "/volumecontrol.sh -o i"), { locked = true, repeating = true , description = "Volume up" })
 
 -- Media control
-hl.bind("XF86AudioPlay",  hl.dsp.exec_cmd("playerctl play-pause"), { locked = true })
-hl.bind("XF86AudioPause", hl.dsp.exec_cmd("playerctl play-pause"), { locked = true })
-hl.bind("XF86AudioNext",  hl.dsp.exec_cmd("playerctl next"),       { locked = true })
-hl.bind("XF86AudioPrev",  hl.dsp.exec_cmd("playerctl previous"),   { locked = true })
+hl.bind("XF86AudioPlay",  hl.dsp.exec_cmd("playerctl play-pause"), { locked = true , description = "Play/pause media" })
+hl.bind("XF86AudioPause", hl.dsp.exec_cmd("playerctl play-pause"), { locked = true , description = "Play/pause media" })
+hl.bind("XF86AudioNext",  hl.dsp.exec_cmd("playerctl next"),       { locked = true , description = "Next track" })
+hl.bind("XF86AudioPrev",  hl.dsp.exec_cmd("playerctl previous"),   { locked = true , description = "Previous track" })
 
 -- Brightness control
-hl.bind("XF86MonBrightnessUp",   hl.dsp.exec_cmd(srcPath .. "/brightnesscontrol.sh i"), { locked = true, repeating = true })
-hl.bind("XF86MonBrightnessDown", hl.dsp.exec_cmd(srcPath .. "/brightnesscontrol.sh d"), { locked = true, repeating = true })
+hl.bind("XF86MonBrightnessUp",   hl.dsp.exec_cmd(srcPath .. "/brightnesscontrol.sh i"), { locked = true, repeating = true , description = "Brightness up" })
+hl.bind("XF86MonBrightnessDown", hl.dsp.exec_cmd(srcPath .. "/brightnesscontrol.sh d"), { locked = true, repeating = true , description = "Brightness down" })
 
 -- Screenshot / screencapture  (ported from Omarchy 4)
 -- The old three-mode split (Super+X region / Super+ALT+P monitor / Print all)
@@ -264,12 +265,13 @@ hl.bind("XF86MonBrightnessDown", hl.dsp.exec_cmd(srcPath .. "/brightnesscontrol.
 -- ALONGSIDE Omarchy's Print. That deliberately costs the universal cut, which
 -- upstream puts on Super+X — no loss, since "cut" was the one member of the
 -- copy/paste trio with no terminal meaning, and Super+C/Super+V still work.
-hl.bind(mainMod .. " + X",          hl.dsp.exec_cmd(srcPath .. "/capture-screenshot.sh"))
-hl.bind("Print",                    hl.dsp.exec_cmd(srcPath .. "/capture-screenshot.sh"))
-hl.bind("ALT + Print",              hl.dsp.exec_cmd(srcPath .. "/capture-screenrecording.sh --stop-recording || " .. srcPath .. "/capture-screenrecording.sh"))
-hl.bind(mainMod .. " + Print",      hl.dsp.exec_cmd("pkill hyprpicker || hyprpicker -a"))
-hl.bind(mainMod .. " + CTRL + Print", hl.dsp.exec_cmd(srcPath .. "/capture-text.sh"))
-hl.bind(mainMod .. " + SHIFT + Print", hl.dsp.exec_cmd(srcPath .. "/capture-qr.sh"))
+hl.bind(mainMod .. " + X",          hl.dsp.exec_cmd(srcPath .. "/capture-screenshot.sh"), { description = "Screenshot region or window" })
+hl.bind("Print",                    hl.dsp.exec_cmd(srcPath .. "/capture-screenshot.sh"), { description = "Screenshot region or window" })
+hl.bind("ALT + Print",              hl.dsp.exec_cmd(srcPath .. "/capture-screenrecording.sh --stop-recording || " .. srcPath .. "/capture-screenrecording.sh"),
+    { description = "Start/stop screen recording" })
+hl.bind(mainMod .. " + Print",      hl.dsp.exec_cmd("pkill hyprpicker || hyprpicker -a"), { description = "Pick a color from the screen" })
+hl.bind(mainMod .. " + CTRL + Print", hl.dsp.exec_cmd(srcPath .. "/capture-text.sh"), { description = "Extract text from a region (OCR)" })
+hl.bind(mainMod .. " + SHIFT + Print", hl.dsp.exec_cmd(srcPath .. "/capture-qr.sh"), { description = "Decode a QR code from a region" })
 
 -- Keyboard control for the slurp region picker (see capture-region.sh).
 -- The binds live exactly as long as a selection layer is on screen (slurp opens
@@ -373,8 +375,8 @@ hl.bind(mainMod .. " + SHIFT + minus", hl.dsp.exec_cmd(srcPath .. "/step-monitor
 -- Undocked, it does nothing so logind suspends cleanly — disabling the sole
 -- monitor left Hyprland headless and it often couldn't re-light eDP-1 on
 -- lid-open (needed a power cycle). lid-open.sh re-enables eDP-1 with verify+retry.
-hl.bind("switch:on:Lid Switch",  hl.dsp.exec_cmd(home .. "/.config/hypr/bin/lid-close.sh"), { locked = true })
-hl.bind("switch:off:Lid Switch", hl.dsp.exec_cmd(home .. "/.config/hypr/bin/lid-open.sh"),  { locked = true })
+hl.bind("switch:on:Lid Switch",  hl.dsp.exec_cmd(home .. "/.config/hypr/bin/lid-close.sh"), { locked = true , description = "Lid closed: disable laptop panel when docked" })
+hl.bind("switch:off:Lid Switch", hl.dsp.exec_cmd(home .. "/.config/hypr/bin/lid-open.sh"),  { locked = true , description = "Lid opened: re-enable laptop panel" })
 
 -- Speech-to-text dictation — right cmd key.
 -- NOTE: the altwin:ctrl_alt_win remap (see input.kb_options) rotates modifiers,
@@ -390,16 +392,16 @@ hl.bind("switch:off:Lid Switch", hl.dsp.exec_cmd(home .. "/.config/hypr/bin/lid-
 -- press the key. Left as-is rather than fixed blind: the replacement has to be
 -- `Control_R`, and that needs testing on the actual keyboard, plus checking it
 -- does not swallow the remapped modifier everywhere else.
-hl.bind("code:108", hl.dsp.exec_cmd(srcPath .. "/dictation.sh"))
+hl.bind("code:108", hl.dsp.exec_cmd(srcPath .. "/dictation.sh"), { description = "Toggle dictation (INACTIVE: code: binds never fire)" })
 
 -- Handy — offline push-to-talk speech-to-text (github.com/cjpais/Handy).
 -- A separate STT engine from VoiceFlow above; Handy autostarts (exec-once) and
 -- this toggles recording into the focused field. Wayland has no global-hotkey
 -- API, so the compositor owns the key.
-hl.bind("F5", hl.dsp.exec_cmd("handy --toggle-transcription"))
+hl.bind("F5", hl.dsp.exec_cmd("handy --toggle-transcription"), { description = "Toggle push-to-talk transcription (Handy)" })
 
 -- Screen annotation (wayscriber overlay toggle)
-hl.bind(mainMod .. " + D", hl.dsp.exec_cmd("wayscriber --daemon-toggle"))
+hl.bind(mainMod .. " + D", hl.dsp.exec_cmd("wayscriber --daemon-toggle"), { description = "Toggle screen annotation overlay" })
 
 ----------------------------------------------------------------------
 -- UNIVERSAL COPY / PASTE  (ported from Omarchy 4 bindings/clipboard.lua)
@@ -472,69 +474,71 @@ hl.bind(mainMod .. " + V", universalClipboard("CTRL", "V", "CTRL SHIFT", "V"), {
 -- cliphist moved off Super+V (now universal paste) to Super+Ctrl+V — the slot
 -- Omarchy gives its own clipboard manager. The wl-paste --watch daemons in
 -- AUTOSTART above still feed it, so history is unchanged.
-hl.bind(mainMod .. " + CTRL + V",   hl.dsp.exec_cmd(srcPath .. "/cliphist-menu.sh c"))
+hl.bind(mainMod .. " + CTRL + V",   hl.dsp.exec_cmd(srcPath .. "/cliphist-menu.sh c"), { description = "Clipboard history" })
 
 -- (cliamp, the music TUI, lives in the Super+A submap on Z — see SUBMAPS.)
 
 -- Move / change window focus
-hl.bind(mainMod .. " + left",  hl.dsp.focus({ direction = "left" }))
-hl.bind(mainMod .. " + right", hl.dsp.focus({ direction = "right" }))
-hl.bind(mainMod .. " + up",    hl.dsp.focus({ direction = "up" }))
-hl.bind(mainMod .. " + down",  hl.dsp.focus({ direction = "down" }))
-hl.bind(mainMod .. " + H",     hl.dsp.focus({ direction = "left" }))
-hl.bind(mainMod .. " + L",     hl.dsp.focus({ direction = "right" }))
-hl.bind(mainMod .. " + K",     hl.dsp.focus({ direction = "up" }))
+hl.bind(mainMod .. " + left",  hl.dsp.focus({ direction = "left" }), { description = "Focus window left" })
+hl.bind(mainMod .. " + right", hl.dsp.focus({ direction = "right" }), { description = "Focus window right" })
+hl.bind(mainMod .. " + up",    hl.dsp.focus({ direction = "up" }), { description = "Focus window up" })
+hl.bind(mainMod .. " + down",  hl.dsp.focus({ direction = "down" }), { description = "Focus window down" })
+hl.bind(mainMod .. " + H",     hl.dsp.focus({ direction = "left" }), { description = "Focus window left" })
+hl.bind(mainMod .. " + L",     hl.dsp.focus({ direction = "right" }), { description = "Focus window right" })
+hl.bind(mainMod .. " + K",     hl.dsp.focus({ direction = "up" }), { description = "Focus window up" })
 -- (Super+J is the dwindle split toggle, see SUBMAPS section below; use
 --  Super+Down for focus-down.)
-hl.bind("ALT + Tab",           hl.dsp.focus({ direction = "down" }))
+hl.bind("ALT + Tab",           hl.dsp.focus({ direction = "down" }), { description = "Focus window down" })
 
 -- Switch workspaces (custom toggle script) + move-window-silent, keys 1..0
 for i = 1, 10 do
     local key = i % 10   -- 10 -> key 0
-    hl.bind(mainMod .. " + " .. key,          hl.dsp.exec_cmd(srcPath .. "/toggle_workspace.sh " .. i))
-    hl.bind(mainMod .. " + CTRL + " .. key,   hl.dsp.window.move({ workspace = i, follow = false }))
+    hl.bind(mainMod .. " + " .. key,          hl.dsp.exec_cmd(srcPath .. "/toggle_workspace.sh " .. i),
+        { description = "Switch to workspace " .. i })
+    hl.bind(mainMod .. " + CTRL + " .. key,   hl.dsp.window.move({ workspace = i, follow = false }),
+        { description = "Move window to workspace " .. i .. " (stay here)" })
 end
 
 -- Move current workspace to another monitor
-hl.bind(mainMod .. " + SHIFT + H",     hl.dsp.workspace.move({ monitor = "l" }))
-hl.bind(mainMod .. " + SHIFT + L",     hl.dsp.workspace.move({ monitor = "r" }))
-hl.bind(mainMod .. " + SHIFT + J",     hl.dsp.workspace.move({ monitor = "d" }))
-hl.bind(mainMod .. " + SHIFT + K",     hl.dsp.workspace.move({ monitor = "u" }))
-hl.bind(mainMod .. " + SHIFT + left",  hl.dsp.workspace.move({ monitor = "l" }))
-hl.bind(mainMod .. " + SHIFT + right", hl.dsp.workspace.move({ monitor = "r" }))
-hl.bind(mainMod .. " + SHIFT + down",  hl.dsp.workspace.move({ monitor = "d" }))
-hl.bind(mainMod .. " + SHIFT + up",    hl.dsp.workspace.move({ monitor = "u" }))
+hl.bind(mainMod .. " + SHIFT + H",     hl.dsp.workspace.move({ monitor = "l" }), { description = "Move workspace to monitor left" })
+hl.bind(mainMod .. " + SHIFT + L",     hl.dsp.workspace.move({ monitor = "r" }), { description = "Move workspace to monitor right" })
+hl.bind(mainMod .. " + SHIFT + J",     hl.dsp.workspace.move({ monitor = "d" }), { description = "Move workspace to monitor down" })
+hl.bind(mainMod .. " + SHIFT + K",     hl.dsp.workspace.move({ monitor = "u" }), { description = "Move workspace to monitor up" })
+hl.bind(mainMod .. " + SHIFT + left",  hl.dsp.workspace.move({ monitor = "l" }), { description = "Move workspace to monitor left" })
+hl.bind(mainMod .. " + SHIFT + right", hl.dsp.workspace.move({ monitor = "r" }), { description = "Move workspace to monitor right" })
+hl.bind(mainMod .. " + SHIFT + down",  hl.dsp.workspace.move({ monitor = "d" }), { description = "Move workspace to monitor down" })
+hl.bind(mainMod .. " + SHIFT + up",    hl.dsp.workspace.move({ monitor = "u" }), { description = "Move workspace to monitor up" })
 
 -- Move focused window around the current workspace
-hl.bind(mainMod .. " + CTRL + left",  hl.dsp.window.move({ direction = "l" }))
-hl.bind(mainMod .. " + CTRL + right", hl.dsp.window.move({ direction = "r" }))
-hl.bind(mainMod .. " + CTRL + up",    hl.dsp.window.move({ direction = "u" }))
-hl.bind(mainMod .. " + CTRL + down",  hl.dsp.window.move({ direction = "d" }))
-hl.bind(mainMod .. " + CTRL + H",     hl.dsp.window.move({ direction = "l" }))
-hl.bind(mainMod .. " + CTRL + L",     hl.dsp.window.move({ direction = "r" }))
-hl.bind(mainMod .. " + CTRL + K",     hl.dsp.window.move({ direction = "u" }))
-hl.bind(mainMod .. " + CTRL + J",     hl.dsp.window.move({ direction = "d" }))
+hl.bind(mainMod .. " + CTRL + left",  hl.dsp.window.move({ direction = "l" }), { description = "Move window left" })
+hl.bind(mainMod .. " + CTRL + right", hl.dsp.window.move({ direction = "r" }), { description = "Move window right" })
+hl.bind(mainMod .. " + CTRL + up",    hl.dsp.window.move({ direction = "u" }), { description = "Move window up" })
+hl.bind(mainMod .. " + CTRL + down",  hl.dsp.window.move({ direction = "d" }), { description = "Move window down" })
+hl.bind(mainMod .. " + CTRL + H",     hl.dsp.window.move({ direction = "l" }), { description = "Move window left" })
+hl.bind(mainMod .. " + CTRL + L",     hl.dsp.window.move({ direction = "r" }), { description = "Move window right" })
+hl.bind(mainMod .. " + CTRL + K",     hl.dsp.window.move({ direction = "u" }), { description = "Move window up" })
+hl.bind(mainMod .. " + CTRL + J",     hl.dsp.window.move({ direction = "d" }), { description = "Move window down" })
 
 -- Move / resize window with the mouse (and Z/X keyboard equivalents)
-hl.bind(mainMod .. " + mouse:272", hl.dsp.window.drag(),   { mouse = true })
-hl.bind(mainMod .. " + mouse:273", hl.dsp.window.resize(), { mouse = true })
-hl.bind(mainMod .. " + Z",         hl.dsp.window.drag(),   { mouse = true })
+hl.bind(mainMod .. " + mouse:272", hl.dsp.window.drag(),   { mouse = true , description = "Drag window with mouse" })
+hl.bind(mainMod .. " + mouse:273", hl.dsp.window.resize(), { mouse = true , description = "Resize window with mouse" })
+hl.bind(mainMod .. " + Z",         hl.dsp.window.drag(),   { mouse = true , description = "Drag window (keyboard)" })
 
 -- Special workspaces (scratchpads)
-hl.bind(mainMod .. " + CTRL + F1", hl.dsp.window.move({ workspace = "special:slack",    follow = false }))
-hl.bind(mainMod .. " + CTRL + F2", hl.dsp.window.move({ workspace = "special:obsidian", follow = false }))
-hl.bind(mainMod .. " + CTRL + F3", hl.dsp.window.move({ workspace = "special",          follow = false }))
-hl.bind("F1", hl.dsp.workspace.toggle_special("slack"))
-hl.bind("F2", hl.dsp.workspace.toggle_special("obsidian"))
-hl.bind("F3", hl.dsp.workspace.toggle_special())
-hl.bind(mainMod .. " + CTRL + U", hl.dsp.window.move({ workspace = "special", follow = false }))
-hl.bind(mainMod .. " + U",        hl.dsp.workspace.toggle_special())
+hl.bind(mainMod .. " + CTRL + F1", hl.dsp.window.move({ workspace = "special:slack",    follow = false }), { description = "Move window to Slack scratchpad" })
+hl.bind(mainMod .. " + CTRL + F2", hl.dsp.window.move({ workspace = "special:obsidian", follow = false }), { description = "Move window to Obsidian scratchpad" })
+hl.bind(mainMod .. " + CTRL + F3", hl.dsp.window.move({ workspace = "special",          follow = false }), { description = "Move window to scratchpad" })
+hl.bind("F1", hl.dsp.workspace.toggle_special("slack"), { description = "Toggle Slack scratchpad" })
+hl.bind("F2", hl.dsp.workspace.toggle_special("obsidian"), { description = "Toggle Obsidian scratchpad" })
+hl.bind("F3", hl.dsp.workspace.toggle_special(), { description = "Toggle scratchpad" })
+hl.bind(mainMod .. " + CTRL + U", hl.dsp.window.move({ workspace = "special", follow = false }), { description = "Move window to scratchpad" })
+hl.bind(mainMod .. " + U",        hl.dsp.workspace.toggle_special(), { description = "Toggle scratchpad" })
 
 -- Toggle focused window split (dwindle): rearrange the split the window sits
 -- in, horizontal <-> vertical. Super+J is the primary key; Super+N kept as the
 -- historical alias.
-hl.bind(mainMod .. " + J", hl.dsp.layout("togglesplit"))
-hl.bind(mainMod .. " + N", hl.dsp.layout("togglesplit"))
+hl.bind(mainMod .. " + J", hl.dsp.layout("togglesplit"), { description = "Toggle split direction" })
+hl.bind(mainMod .. " + N", hl.dsp.layout("togglesplit"), { description = "Toggle split direction (alias)" })
 
 ----------------------------------------------------------------------
 -- SUBMAPS
@@ -569,23 +573,23 @@ local function vicinae(deeplink)
     return submapExec(string.format('vicinae deeplink "%s"', deeplink))
 end
 
-hl.bind(mainMod .. " + A", hl.dsp.submap("rofiselect"))
+hl.bind(mainMod .. " + A", hl.dsp.submap("rofiselect"), { description = "Apps submap: launch or focus an app" })
 hl.define_submap("rofiselect", function()
     -- Web apps, private profile
-    hl.bind("Y", webapp(privateAcct, "https://youtube.com/"))
-    hl.bind("W", webapp(privateAcct, "https://web.whatsapp.com/"))
-    hl.bind("T", webapp(privateAcct, "https://web.telegram.org/a/"))
-    hl.bind("P", webapp(privateAcct, "https://photos.google.com/"))
-    hl.bind("M", webapp(privateAcct, "https://maps.google.com/"))
+    hl.bind("Y", webapp(privateAcct, "https://youtube.com/"), { description = "YouTube (private profile)" })
+    hl.bind("W", webapp(privateAcct, "https://web.whatsapp.com/"), { description = "WhatsApp (private profile)" })
+    hl.bind("T", webapp(privateAcct, "https://web.telegram.org/a/"), { description = "Telegram (private profile)" })
+    hl.bind("P", webapp(privateAcct, "https://photos.google.com/"), { description = "Google Photos (private profile)" })
+    hl.bind("M", webapp(privateAcct, "https://maps.google.com/"), { description = "Google Maps (private profile)" })
 
     -- Web apps, work profile (Roche)
-    hl.bind("C", webapp(workAcct, "https://calendar.google.com/"))
-    hl.bind("G", webapp(workAcct, "https://mail.google.com/"))
-    hl.bind("D", webapp(workAcct, "https://drive.google.com/"))
+    hl.bind("C", webapp(workAcct, "https://calendar.google.com/"), { description = "Google Calendar (work profile)" })
+    hl.bind("G", webapp(workAcct, "https://mail.google.com/"), { description = "Gmail (work profile)" })
+    hl.bind("D", webapp(workAcct, "https://drive.google.com/"), { description = "Google Drive (work profile)" })
 
     -- Native apps
-    hl.bind("S",     app("signal", "signal-desktop"))
-    hl.bind("slash", app("1[Pp]assword", "1password"))
+    hl.bind("S",     app("signal", "signal-desktop"), { description = "Signal" })
+    hl.bind("slash", app("1[Pp]assword", "1password"), { description = "1Password" })
 
     -- TUI apps. cliamp is the Winamp 2.x-styled terminal music player Omarchy
     -- ships (cliamp.stream), with built-in lo-fi radio; "?" lists its keys. It
@@ -596,29 +600,29 @@ hl.define_submap("rofiselect", function()
     -- because cliamp also writes [spotify] client_secret and runtime state into
     -- that file, so it must stay out of the repo. Only the theme definition is
     -- stowed (dotfiles/cliamp/.config/cliamp/themes/).
-    hl.bind("Z",     app("cliamp", "kitty --class cliamp -e cliamp --start-theme catppuccin-mocha-teal"))
+    hl.bind("Z",     app("cliamp", "kitty --class cliamp -e cliamp --start-theme catppuccin-mocha-teal"), { description = "cliamp music player" })
 
     -- vicinae system toggles (moved to SHIFT, W/A/B/M are apps now)
-    hl.bind("SHIFT + W", vicinae("vicinae://launch/@dagimg-dot/store.vicinae.wifi-commander/scan-wifi"))
-    hl.bind("SHIFT + A", vicinae("vicinae://launch/@rastsislaux/store.vicinae.pulseaudio/pulseaudio"))
-    hl.bind("SHIFT + B", vicinae("vicinae://launch/@Gelei/store.vicinae.bluetooth/scan"))
-    hl.bind("SHIFT + M", vicinae("vicinae://launch/@kraeki/google-calendar/list-events"))
+    hl.bind("SHIFT + W", vicinae("vicinae://launch/@dagimg-dot/store.vicinae.wifi-commander/scan-wifi"), { description = "Wi-Fi networks (vicinae)" })
+    hl.bind("SHIFT + A", vicinae("vicinae://launch/@rastsislaux/store.vicinae.pulseaudio/pulseaudio"), { description = "Audio devices (vicinae)" })
+    hl.bind("SHIFT + B", vicinae("vicinae://launch/@Gelei/store.vicinae.bluetooth/scan"), { description = "Bluetooth devices (vicinae)" })
+    hl.bind("SHIFT + M", vicinae("vicinae://launch/@kraeki/google-calendar/list-events"), { description = "Calendar agenda (vicinae)" })
 
-    hl.bind("escape", hl.dsp.submap("reset"))
+    hl.bind("escape", hl.dsp.submap("reset"), { description = "Leave apps submap" })
 end)
 
 -- Resize submap (Super+R)
-hl.bind(mainMod .. " + R", hl.dsp.submap("resize"))
+hl.bind(mainMod .. " + R", hl.dsp.submap("resize"), { description = "Resize submap: resize the focused window" })
 hl.define_submap("resize", function()
-    hl.bind("H",     hl.dsp.window.resize({ x = -30, y = 0,   relative = true }), { repeating = true })
-    hl.bind("L",     hl.dsp.window.resize({ x = 30,  y = 0,   relative = true }), { repeating = true })
-    hl.bind("K",     hl.dsp.window.resize({ x = 0,   y = -30, relative = true }), { repeating = true })
-    hl.bind("J",     hl.dsp.window.resize({ x = 0,   y = 30,  relative = true }), { repeating = true })
-    hl.bind("left",  hl.dsp.window.resize({ x = -30, y = 0,   relative = true }), { repeating = true })
-    hl.bind("right", hl.dsp.window.resize({ x = 30,  y = 0,   relative = true }), { repeating = true })
-    hl.bind("up",    hl.dsp.window.resize({ x = 0,   y = -30, relative = true }), { repeating = true })
-    hl.bind("down",  hl.dsp.window.resize({ x = 0,   y = 30,  relative = true }), { repeating = true })
-    hl.bind("escape", hl.dsp.submap("reset"))
+    hl.bind("H",     hl.dsp.window.resize({ x = -30, y = 0,   relative = true }), { repeating = true , description = "Shrink window horizontally" })
+    hl.bind("L",     hl.dsp.window.resize({ x = 30,  y = 0,   relative = true }), { repeating = true , description = "Grow window horizontally" })
+    hl.bind("K",     hl.dsp.window.resize({ x = 0,   y = -30, relative = true }), { repeating = true , description = "Shrink window vertically" })
+    hl.bind("J",     hl.dsp.window.resize({ x = 0,   y = 30,  relative = true }), { repeating = true , description = "Grow window vertically" })
+    hl.bind("left",  hl.dsp.window.resize({ x = -30, y = 0,   relative = true }), { repeating = true , description = "Shrink window horizontally" })
+    hl.bind("right", hl.dsp.window.resize({ x = 30,  y = 0,   relative = true }), { repeating = true , description = "Grow window horizontally" })
+    hl.bind("up",    hl.dsp.window.resize({ x = 0,   y = -30, relative = true }), { repeating = true , description = "Shrink window vertically" })
+    hl.bind("down",  hl.dsp.window.resize({ x = 0,   y = 30,  relative = true }), { repeating = true , description = "Grow window vertically" })
+    hl.bind("escape", hl.dsp.submap("reset"), { description = "Leave resize submap" })
 end)
 
 ----------------------------------------------------------------------
