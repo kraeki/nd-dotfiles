@@ -470,13 +470,30 @@ Auto-started in Hyprland (`exec-once`):
 - `blueman-applet`, `nm-applet` - System tray
 
 ### Power Management
-Uses power-profiles-daemon (not TLP — PPD is what AMD/Framework recommend for Ryzen 7040; TLP is explicitly disabled). Configured in `modules/nixos/power.nix`:
-- Laptop-mode sysctls (batched I/O, low swappiness, NMI watchdog off)
-- Zram (25%, zstd) as OOM safety net
-- upower thresholds: suspend at 5% battery
-- Clamshell docking: lid-close while docked does not suspend (Hyprland lid-switch binds handle the panel)
-- `amd_pstate=active` kernel param lives in `hosts/naptop` (hardware-specific)
-- Battery charge thresholds are set via `framework-tool`, not declaratively
+Uses **power-profiles-daemon**, as AMD and Framework recommend for these Ryzen
+parts. **TLP is explicitly disabled** (`services.tlp.enable = false`) — it
+conflicts with PPD — and `powerManagement.powertop.enable = false` for the same
+reason (both in `modules/nixos/power.nix`, along with the laptop-mode sysctls,
+zram OOM safety net, upower suspend-at-5% thresholds, and the clamshell-docking
+lid behavior). `amd_pstate=active` lives in `hosts/naptop` (hardware-specific).
+Do not re-describe this as a TLP setup: the old TLP tunables (USB autosuspend,
+PCIe ASPM powersupersave, SATA ALPM, powersave governor, 75-80% charge
+thresholds) are all gone with it.
+
+Battery charge is capped by `systemd.services.battery-charge-threshold` in
+`hosts/naptop/default.nix`, because **PPD has no charge-threshold support** —
+dropping TLP silently removed the cap and left the pack charging to 100%.
+- Writes `/sys/class/power_supply/BAT*/charge_control_end_threshold`, provided
+  by the mainline `cros_charge_control` driver against the Framework EC.
+  `framework-tool --charge-limit` pokes the same EC register.
+- **End threshold only** — there is no `charge_control_start_threshold` here;
+  the EC applies its own recharge hysteresis a few percent below the ceiling.
+- Runs on `multi-user.target` *and* `suspend`/`hibernate.target`. It must NOT
+  set `RemainAfterExit`: a oneshot left "active" from boot is skipped when the
+  sleep targets pull it in again, so the re-assert after an EC reset never
+  happens.
+- The limit is the `limit` binding in that `let`. 80 is the balance point; 60
+  roughly halves the calendar-aging rate again if the machine never undocks.
 
 ## Common Keybindings
 

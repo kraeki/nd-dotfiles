@@ -97,6 +97,49 @@
     rocmOverrideGfx = "11.5.1";  # sets HSA_OVERRIDE_GFX_VERSION for the daemon
   };
 
+  # Battery charge ceiling. This laptop lives on AC, and holding a Li-ion cell
+  # at 100% SoC is what actually ages it (calendar aging); cycle count is a
+  # non-issue here. Capping the charge is the single highest-impact knob.
+  #
+  # power-profiles-daemon has no charge-threshold support and TLP is off, so
+  # nothing was setting this -- the EC default is 100. The knob comes from the
+  # mainline `cros_charge_control` driver (Framework EC), exposed as
+  # /sys/class/power_supply/BAT1/charge_control_end_threshold. Only an *end*
+  # threshold exists; the EC applies its own recharge hysteresis a few percent
+  # below it. `framework-tool --charge-limit` writes the same EC register.
+  #
+  # Lower this to 60 if the machine essentially never leaves the dock -- that
+  # roughly halves the aging rate again, at the cost of unplugged runtime.
+  systemd.services.battery-charge-threshold =
+    let
+      limit = 80;
+      # BAT1 on this board, but glob so an EC/firmware rename can't silently
+      # turn this into a no-op that leaves the battery charging to 100%.
+      script = pkgs.writeShellScript "battery-charge-threshold" ''
+        set -eu
+        found=0
+        for f in /sys/class/power_supply/BAT*/charge_control_end_threshold; do
+          [ -w "$f" ] || continue
+          echo ${toString limit} > "$f"
+          found=1
+        done
+        [ "$found" = 1 ] || { echo "no writable charge_control_end_threshold found" >&2; exit 1; }
+      '';
+    in {
+      description = "Cap battery charge at ${toString limit}%";
+      # Re-assert after sleep: the EC keeps the limit across suspend, but not
+      # across a full EC reset (shutdown / battery disconnect), and re-writing
+      # it is idempotent.
+      wantedBy = [ "multi-user.target" "suspend.target" "hibernate.target" ];
+      after = [ "suspend.target" "hibernate.target" ];
+      # No RemainAfterExit: a oneshot left "active" after boot would be skipped
+      # when suspend.target pulls it in again on resume.
+      serviceConfig = {
+        Type = "oneshot";
+        ExecStart = script;
+      };
+    };
+
   # Define a user account. Don't forget to set a password with ‘passwd’.
   users.users.kraeki = {
     isNormalUser = true;

@@ -41,7 +41,7 @@
     environment.systemPackages = with pkgs; [
       # System tools
       lsof
-      htop
+      btop
       vim
       fd
       usbutils
