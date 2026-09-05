@@ -208,8 +208,21 @@ else derives from it:
 - `dotfiles/fastfetch/` is the shell greeting — the wordmark with fastfetch's
   `$1`/`$2` color markers. Nothing auto-runs it; `fastfetch` was already in
   `systemPackages`.
-- `hyprlock.conf` gets a dim teal `ndos ❯` **text** label, not the wordmark:
-  hyprlock labels are single-line, so eight rows of ASCII do not fit.
+- `branding/mk-lockmark` regenerates
+  `dotfiles/hypr/.config/hypr/branding/nd-lock.png`, the lock screen wordmark.
+  It is an `image` widget in `hyprlock.conf`, not a label — hyprlock labels are
+  single-line, so eight rows of ASCII only go in as a raster (this replaced the
+  dim `ndos ❯` text label). The dim teal and the trailing peach `❯` are **baked
+  into the PNG**: the image widget has no color or opacity key, and the chevron
+  is not part of `logo.svg` (it is drawn from JetBrainsMono Nerd Font).
+  The PNG is padded to a **square** so `size =` is unambiguous — the widget
+  scales by the lesser side — and `rounding = 0` is then mandatory, since
+  rounding defaults to `-1` (circle) and would clip both ends off the wordmark.
+  The background stays black; only the mark is lit.
+  Check a config edit with
+  `hyprlock --config <file> --display no-such-wl-display`: it prints hyprlang
+  errors, then aborts on "Couldn't connect to a wayland compositor" without
+  ever locking the screen.
 
 **Render sizes must be whole multiples of the 44-cell grid** (528px for
 Plymouth, 1012px for the wallpaper). Off-grid, cell edges land on fractional
@@ -289,6 +302,44 @@ monitor*, so `layer.opened` fires 3× while docked; each `hl.bind` handle is
 kept and `:unbind()`-ed individually on the last close. Unbinding by key would
 tear same-key binds out of the rest of the config.
 
+### Screen Sharing (portal picker)
+`dotfiles/hypr/.local/share/bin/share-picker` is the picker XDPH pops when an
+app asks to share the screen, wired up as `screencopy:custom_picker_binary` in
+`dotfiles/hypr/.config/hypr/xdph.conf`. It replaces the bundled
+`hyprland-share-picker`:
+- **It caches its answer for 10s** — the reason it exists. Chrome opens
+  **three** ScreenCast sessions for one "present now" (xdph #80; every
+  Chromium/Electron app does it), so the picker is asked repeatedly and the
+  user gets two dialogs. Restore tokens do not fix this: an
+  xdg-desktop-portal restore token is **single-use**, and Chrome burns it on a
+  session it never `Start`s, so no fresh token is issued and the next session
+  prompts again. The journal shows the whole dance —
+  `restore data invalid / missing, prompting` → `Sent restore token` →
+  `restore data valid, not prompting` → `restore data invalid / missing,
+  prompting`. A cancel is cached too (3s), or dismissing the menu just pops it
+  again. `share-picker --flush` drops the cache.
+- `screencopy:allow_token_by_default` is therefore **off**, and is not the fix
+  it looks like: a surviving token silently re-shares the old source days
+  later, ignoring a fresh pick.
+- The UI is **rofi**, using the same config as the window switcher, instead of
+  a Qt6 widget window. Entries: every enabled monitor, every toplevel, and a
+  `Region` entry that runs `slurp`.
+- Protocol (xdph `src/shared/ScreencopyShared.cpp`): the window list arrives in
+  `$XDPH_WINDOW_SHARING_LIST` as `id[HC>]class[HT>]title[HE>]addr[HA>]…`, and
+  the picker prints `[SELECTION]<flags>/screen:<name>` |
+  `…/window:<id>` | `…/region:<output>@x,y,w,h` (region coordinates relative to
+  the output). **The trailing newline is required** — xdph `pop_back()`s the
+  last character. No `[SELECTION]` means cancelled. Flag `r` = allow a restore
+  token, which is what `--allow-token` (passed when `allow_token_by_default`
+  is on) turns on.
+- Test it without a meeting: seed the cache
+  (`printf '%s\nscreen:eDP-1\n' "$(date +%s)" > $XDG_RUNTIME_DIR/xdph-share-picker.cache`)
+  and drive `org.freedesktop.portal.ScreenCast`
+  (CreateSession → SelectSources → Start) over D-Bus; a `Response 0` carrying a
+  stream with `mapping_id` proves the whole chain. Note xdph's stdout is
+  block-buffered, so its journal lags — the mtime of
+  `xdph-share-picker.cache.lock` is the reliable "the picker ran" signal.
+
 ### cliamp (music TUI)
 Winamp 2.x-styled terminal music player with built-in lo-fi radio
 ([cliamp.stream](https://www.cliamp.stream/)), in nixpkgs. Launched from the
@@ -329,6 +380,61 @@ against `^#[0-9a-fA-F]{6}$`, so an **inline** comment
 (`accent = "#94e2d5"  # teal`) makes the whole theme fail to parse and silently
 disappear from `cliamp theme list` — no error, it is just gone. Full-line
 comments are fine. Verify a theme edit with `cliamp theme list` before trusting it.
+
+### superfile (TUI file manager)
+
+The TUI counterpart to Nautilus. **The binary is `superfile`** — nixpkgs ships
+no `spf`, even though upstream's docs use that name throughout, so `spf` is a
+`shellAliases` entry in `users/kraeki/home.nix`.
+
+Unlike cliamp, superfile keeps runtime state entirely **out** of its config dir
+(`~/.local/share/superfile/` for pinned dirs and toggles, `~/.local/state/`
+for the log), so `config.toml` is pure config and **is** stowed. That matters
+because superfile has **no `--theme` flag** — `theme =` in `config.toml` is the
+only way to select one, so pinning the choice reproducibly means committing the
+file. (cliamp solves the same problem the other way, via
+`--start-theme` in its keybind, because its `config.toml` holds a client secret.)
+
+`hotkeys.toml` is left unmanaged: it is still stock, and `--fix-hotkeys` writes
+to it in place.
+
+`theme/catppuccin-mocha-teal.toml` re-accents the bundled `catppuccin` theme,
+which is Mocha accented with **blue/lavender/sapphire**. Superfile themes have
+**no `inherits` key** (vicinae does), so it is a full 38-key copy — keep the key
+set identical to `~/.config/superfile/theme/catppuccin.toml` when upstream adds
+keys. Notes on the port:
+- The four `*_border_active` keys upstream are four *different* hues
+  (lavender / red / green / grey). Only one pane is ever focused, so they are
+  unified on teal.
+- `modal_confirm_bg` / `modal_cancel_bg` are **fills** whose labels are drawn in
+  the matching `_fg`, so those fg values must be dark — crust `#11111b` gives
+  12.6:1 and 9.1:1. This is the cliamp trap; superfile avoids it only because
+  fill and text are separate keys here.
+- Selections have **no fill** (`*_item_selected_bg` is the base), so the
+  selected fg is light-on-dark: a lightened teal `#b2ebe1` keeps the selected
+  row brighter than the plain teal used for the path and icon.
+- Off-palette values in the bundled theme were corrected on the way through:
+  `#89b5fa` -> `#89b4fa` and `#73c7ec` -> `#74c7ec` (both upstream typos), and
+  the `#868686` / `#383838` greys -> real Mocha surface2 / crust.
+- Peach `#fab387` on `help_menu_title` is the secondary accent, matching the
+  `❯` in `branding/logo.txt`.
+
+Verify a theme edit by **rendering**, not by reading: superfile needs a real
+pty and answers to the terminal's OSC 11 / CPR queries before it will draw, but
+once it does, `grep -oaE '38;2;[0-9]+;[0-9]+;[0-9]+'` over the captured output
+lists exactly which colors are in use. Note lipgloss round-trips colors and can
+shift a channel by one — teal `#94e2d5` renders as `38;2;147;226;213`. The
+handful of flat-UI colors that survive any theme (`#e74c3c`, `#f39c12`, ...)
+are superfile's hardcoded **file-type icon** palette, not theme keys.
+
+**Stow folding hazard:** on this machine `~/.config/superfile/` and its
+`theme/` already existed, so stow linked the two files individually. On a fresh
+machine both are absent and stow would fold the whole directory into a single
+symlink at `~/.config/superfile` — after which superfile's first run writes its
+20 bundled themes and `hotkeys.toml` **into the repo**. Run `superfile` once
+before `make`, or unfold afterwards. (`dotfiles/cliamp` is already folded this
+way at `~/.config/cliamp/themes`; it is harmless only because cliamp never
+writes there.)
 
 ### Workspace Layouts
 `Super+M` runs `toggle-workspace-layout [toggle|dwindle|scrolling|status] [-q]`
@@ -451,6 +557,8 @@ Uses LazyVim as the base configuration:
   - `vi` → `nvim`
   - `hc` → Edit Hyprland config
   - `nc` → Edit NixOS config
+  - `c` → `claude --dangerously-skip-permissions`
+  - `spf` → `superfile` (nixpkgs ships no `spf` binary; see superfile section)
 
 ### Theme System
 Catppuccin Mocha with teal accent, configurable via `nd.theme.flavor` / `nd.theme.accent` in `modules/nixos/theme.nix`:
@@ -458,6 +566,28 @@ Catppuccin Mocha with teal accent, configurable via `nd.theme.flavor` / `nd.them
 - Icons: Colloid (teal), Numix Circle, Tela Circle Dracula
 - Cursor: Catppuccin Mocha Teal
 - Terminal: Ghostty with custom config (`dotfiles/ghostty/.config/ghostty/config`)
+- Qt: **Kvantum**, `catppuccin-mocha-teal` (`qt.platformTheme = "qt5ct"` +
+  `qt.style = "kvantum"` in `modules/nixos/theme.nix`). Three traps here, all of
+  which were live at once and left every Qt6 window in stock beige GTK2 Raleigh:
+  - `qt.style = "gtk2"` exports `QT_STYLE_OVERRIDE=gtk2`, which loads
+    **qt6gtk2** — and qt6gtk2 reads a GTK **2** theme, of which Catppuccin has
+    none. `GTK_THEME=catppuccin-mocha-teal-standard` is a GTK3 theme and does
+    nothing for it.
+  - The stowed `dotfiles/qt6ct/.config/qt6ct/qt6ct.conf` has asked for
+    `style=kvantum` all along, but `QT_STYLE_OVERRIDE` wins over it, and
+    neither qt6ct nor the Kvantum plugin was installed. `hyprland.lua` exports
+    `QT_QPA_PLATFORMTHEME=qt6ct`; the NixOS `qt5ct` platform theme installs
+    both qt5ct and qt6ct, and `QT_STYLE_OVERRIDE=kvantum` covers Qt5 apps,
+    which cannot load the qt6ct plugin.
+  - `catppuccin-kvantum` ships **only** `share/Kvantum/…`, a path that is not
+    in `environment.pathsToLink`, so listing it in `systemPackages` linked
+    nothing at all — hence the explicit `environment.pathsToLink` entry in
+    `modules/nixos/theme.nix`. The theme is selected by
+    `dotfiles/kvantum/.config/Kvantum/kvantum.kvconfig`; nixpkgs patches
+    Kvantum to search XDG dirs, so the theme itself can stay in the store.
+    Its override (`accent`/`variant`) follows `nd.theme`, and decides the
+    directory name that file points at — so changing `nd.theme.accent` means
+    editing `kvantum.kvconfig` too.
 
 ### Key Services and Daemons
 Auto-started in Hyprland (`exec-once`):

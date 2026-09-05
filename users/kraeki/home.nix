@@ -33,6 +33,9 @@ in
     # Named `c` rather than shadowing `claude`, so the bare command still
     # runs with normal permission prompts when that is what you want.
     c = "claude --dangerously-skip-permissions";
+    # superfile documents itself as `spf`, but nixpkgs installs only the
+    # `superfile` binary — no `spf` symlink. Restore the documented name.
+    spf = "superfile";
   };
 
   home.packages = with pkgs; [
@@ -72,7 +75,10 @@ in
     # Development tools
     lazygit          # TUI for git (LazyVim integration)
     lazydocker       # TUI for docker
-    superfile        # TUI file manager (`spf`)
+    superfile        # TUI file manager. nixpkgs installs the binary as
+                     # `superfile`, not `spf` as upstream's docs say; the
+                     # short name is the shellAlias above. Config and theme
+                     # are stowed from dotfiles/superfile/.
     python3          # Python runtime for LSPs and tools
     uv               # Python package/tool manager; installs PyPI CLIs that
                      # aren't in nixpkgs into ~/.local/bin (`uv tool install`).

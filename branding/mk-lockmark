@@ -1,0 +1,43 @@
+#!/usr/bin/env nix-shell
+#!nix-shell -i bash --packages imagemagick librsvg
+# Regenerate the hyprlock wordmark from the vector mark.
+#   ./mk-lockmark ../../dotfiles/hypr/.config/hypr/branding/nd-lock.png [width]
+#
+# hyprlock's image widget has no color or opacity keys, so the dim teal and the
+# peach chevron are baked into the PNG. Output is padded to a SQUARE: the widget
+# scales by the lesser side, and a square makes `size =` unambiguous (it is then
+# both sides, so the render is 1:1 and stays crisp).
+set -euo pipefail
+out=${1:?usage: mk-lockmark <out.png> [width]}
+W=${2:-528}                      # multiple of the 44-cell grid; 528 = 44 x 12
+here=$(dirname "$0")
+cells=$(head -1 "$here/logo.txt" | wc -L)
+[ $((W % cells)) -eq 0 ] || { echo "width must be a multiple of $cells" >&2; exit 1; }
+
+cell=$((W / cells))              # px per cell; the grid is 44 x 8 whole cells
+alpha=0.35                       # black stays black on the lock screen
+peach='#fab387'
+tmp=$(mktemp -d); trap 'rm -rf "$tmp"' EXIT
+
+rsvg-convert -w "$W" "$here/logo.svg" -o "$tmp/mark.png"
+H=$(magick identify -format '%h' "$tmp/mark.png")
+
+# The peach chevron trails the last row, as it does in the fastfetch logo.
+# Rendered from the font by file path: imagemagick comes from nix-shell and may
+# not share the fontconfig cache that knows ~/.local/share/fonts.
+font=$(fc-match -f '%{file}' 'JetBrainsMono Nerd Font')
+magick -background none -fill "$peach" -font "$font" \
+  -pointsize $((cell * 9)) label:'❯' -trim +repage "$tmp/chev.png"
+read -r cw ch < <(magick identify -format '%w %h\n' "$tmp/chev.png")
+
+# Chevron one cell right of the mark, sitting on the same baseline: the trailing
+# `❯` of the fastfetch logo, which is one glyph on the last line.
+total=$((W + cell + cw))
+magick -size "${total}x${H}" xc:none \
+  "$tmp/mark.png" -gravity northwest -geometry +0+0 -composite \
+  "$tmp/chev.png" -gravity northwest \
+    -geometry "+$((W + cell))+$((H - ch))" -composite \
+  -alpha set -channel A -evaluate multiply "$alpha" +channel \
+  -background none -gravity center -extent "${total}x${total}" \
+  -depth 8 "$out"
+echo "$out: $(magick identify -format '%wx%h' "$out")  (square, size = $total)"

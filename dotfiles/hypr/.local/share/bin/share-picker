@@ -1,0 +1,156 @@
+#!/usr/bin/env bash
+# The screen-share picker XDPH runs, wired up as screencopy:custom_picker_binary
+# in ~/.config/hypr/xdph.conf. Replaces the bundled hyprland-share-picker for
+# two reasons:
+#
+#  1. ONE PROMPT PER SHARE. Chrome opens three ScreenCast sessions for a single
+#     "present now": it starts one, tears it down, and opens further ones while
+#     re-negotiating (xdph issue #80 -- every Chromium/Electron app does this).
+#     Restore tokens do not save us: an xdg-desktop-portal restore token is
+#     single-use, and Chrome burns it on a session it never Starts, so no fresh
+#     token is issued and the next session prompts again. The journal shows the
+#     whole dance:
+#         [screencopy] restore data invalid / missing, prompting   <- dialog 1
+#         [screencopy] Sent restore token to .../webrtc_session...
+#         [screencopy] restore data valid, not prompting           <- token burnt
+#         [screencopy] restore data invalid / missing, prompting   <- dialog 2
+#     So the selection is cached here instead, and the follow-up invocations
+#     within CACHE_TTL are answered from the cache without any UI.
+#  2. LOOKS. hyprland-share-picker is a Qt6 widget app; rofi is already the
+#     window switcher and clipboard menu, so the share picker matches them.
+#
+# Protocol, from xdph's src/shared/ScreencopyShared.cpp:
+#   in   $XDPH_WINDOW_SHARING_LIST   id[HC>]class[HT>]title[HE>]address[HA>]...
+#        --allow-token               passed when screencopy:allow_token_by_default
+#   out  [SELECTION]<flags>/screen:<name>
+#        [SELECTION]<flags>/window:<id>
+#        [SELECTION]<flags>/region:<name>@<x>,<y>,<w>,<h>   x,y relative to the
+#                                                           output's top left
+#   The trailing newline is REQUIRED: xdph pop_back()s the last character of
+#   the selection. Printing no [SELECTION] at all means "cancelled".
+#   flags: "r" lets xdph hand out a restore token, nothing otherwise.
+#
+#   --flush   drop the cache, so the next share prompts again
+
+CACHE="${XDG_RUNTIME_DIR:-/tmp}/xdph-share-picker.cache"
+
+# Long enough to swallow Chrome's burst (all three sessions land inside a
+# second), short enough that deliberately re-sharing something else still asks.
+CACHE_TTL=10
+# A cancel is cached too -- otherwise dismissing the menu just pops it again for
+# the next session -- but for less time, so an immediate retry is not swallowed.
+CANCEL_TTL=3
+
+if [[ ${1:-} == --flush ]]; then
+  rm -f "$CACHE"
+  exit 0
+fi
+
+FLAGS=""
+for arg in "$@"; do
+  [[ $arg == --allow-token ]] && FLAGS="r"
+done
+
+# Chrome's sessions are opened back to back, so two invocations can overlap:
+# serialise them, and let the loser of the race fall through to the cache the
+# winner just wrote. The lock is held for the whole run, menu included.
+exec 9>"$CACHE.lock"
+flock 9
+
+emit() {
+  printf '[SELECTION]%s/%s\n' "$FLAGS" "$1"
+}
+
+if [[ -f $CACHE ]]; then
+  cached_stamp=$(sed -n 1p "$CACHE")
+  cached_sel=$(sed -n 2p "$CACHE")
+  age=$(($(date +%s) - cached_stamp))
+
+  if [[ -n $cached_sel ]]; then
+    if ((age <= CACHE_TTL)); then
+      emit "$cached_sel"
+      exit 0
+    fi
+  elif ((age <= CANCEL_TTL)); then
+    exit 1
+  fi
+fi
+
+remember() {
+  printf '%s\n%s\n' "$(date +%s)" "$1" >"$CACHE"
+}
+
+# Monitors, labelled with their LOGICAL size (what the desktop actually is),
+# hence width/scale -- and swapped on a portrait transform, like the screenshot
+# picker does -- rounded, because Hyprland reports the scale it settled on
+# (1.3333334), and flooring that turns 2160x1440 into 2159x1439. hyprctl lists
+# neither disabled nor mirrored outputs, which is exactly the set that can be
+# shared.
+mon_rows() {
+  hyprctl -j monitors | jq -r '
+    .[] |
+    (.width / .scale | round) as $w |
+    (.height / .scale | round) as $h |
+    if (.transform % 2) == 1 then "\(.name)\t\($h)x\($w)" else "\(.name)\t\($w)x\($h)" end'
+}
+
+ENTRIES=()
+VALUES=()
+
+while IFS=$'\t' read -r name geo; do
+  [[ -n $name ]] || continue
+  ENTRIES+=("$(printf 'Screen   %-8s %s' "$name" "$geo")")
+  VALUES+=("screen:$name")
+done < <(mon_rows)
+
+# The window list arrives in one env var as id[HC>]class[HT>]title[HE>]addr[HA>]
+# repeated. The separators are quoted in every pattern below because [HA>] is a
+# valid bracket expression otherwise, and would match a single character.
+rest=${XDPH_WINDOW_SHARING_LIST:-}
+while [[ $rest == *"[HA>]"* ]]; do
+  record=${rest%%"[HA>]"*}
+  rest=${rest#*"[HA>]"}
+
+  id=${record%%"[HC>]"*}
+  tail=${record#*"[HC>]"}
+  class=${tail%%"[HT>]"*}
+  tail=${tail#*"[HT>]"}
+  title=${tail%%"[HE>]"*}
+
+  [[ $id =~ ^[0-9]+$ ]] || continue
+
+  ENTRIES+=("$(printf 'Window   %s%s' "$class" "${title:+ — $title}")")
+  VALUES+=("window:$id")
+done
+
+ENTRIES+=("Region   select an area…")
+VALUES+=("region")
+
+CHOICE=$(printf '%s\n' "${ENTRIES[@]}" | rofi -dmenu -i -no-custom -format i -p "Share")
+if [[ -z $CHOICE ]]; then
+  remember ""
+  exit 1
+fi
+
+SELECTION=${VALUES[$CHOICE]}
+
+if [[ $SELECTION == region ]]; then
+  # Same output+geometry handshake the Qt picker does. slurp reports layout
+  # coordinates; xdph wants them relative to the output it will capture.
+  read -r out x y w h < <(slurp -f '%o %x %y %w %h' 2>/dev/null)
+  if [[ -z ${h:-} ]]; then
+    remember ""
+    exit 1
+  fi
+
+  read -r mx my < <(hyprctl -j monitors | jq -r --arg o "$out" '.[] | select(.name == $o) | "\(.x) \(.y)"')
+  if [[ -z ${my:-} ]]; then
+    remember ""
+    exit 1
+  fi
+
+  SELECTION="region:$out@$((x - mx)),$((y - my)),$w,$h"
+fi
+
+remember "$SELECTION"
+emit "$SELECTION"

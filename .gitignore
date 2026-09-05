@@ -4,3 +4,11 @@ nvim/.config/nvim/lazy-lock.json
 # directories. Same inode as ~/.config/gtk-3.0/bookmarks via stow, so it cannot
 # be sanitised in the repo without changing the live file.
 dotfiles/gtk-look/.config/gtk-3.0/bookmarks
+
+# nix build symlink
+result
+result-*
+
+# Syncthing keeps its device identity (key.pem, https-key.pem) and an
+# <apikey> in config.xml here. Never commit it -- the key IS the device.
+dotfiles/syncthing/

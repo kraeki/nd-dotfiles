@@ -1,0 +1,9 @@
+# Which Kvantum theme every Qt app uses. The theme itself ships in
+# catppuccin-kvantum (modules/nixos/theme.nix overrides it to mocha/teal); nixpkgs patches
+# Kvantum for XDG dirs, so share/Kvantum on the system path is searched and
+# only this pointer has to live in $HOME.
+#
+# kvantummanager rewrites this file in place when used interactively -- it is
+# stowed anyway, so a change made there lands straight in the repo.
+[General]
+theme=catppuccin-mocha-teal

@@ -1,0 +1,80 @@
+# Catppuccin Mocha, re-accented to teal.
+#
+# Derived from superfile's bundled `catppuccin` theme, which is Mocha accented
+# with blue/lavender/sapphire; this swaps the accent to Mocha teal #94e2d5 to
+# match the rest of the system (GTK, cursor, vicinae, cliamp, the ndos
+# wordmark). Semantic colors (correct/error/cancel/hint) stay put — only the
+# accent moves. Peach #fab387 is the secondary accent, as in branding/logo.txt.
+#
+# Off-palette values in the bundled theme were also corrected: #89b5fa ->
+# #89b4fa (blue typo), #73c7ec -> #74c7ec (sapphire typo), and the #868686 /
+# #383838 greys -> real Mocha surface2/crust.
+
+# Code syntax highlight theme (you can go to https://github.com/alecthomas/chroma/blob/master/styles to find one you like)
+code_syntax_highlight = "catppuccin-mocha"
+
+# ========= Border =========
+file_panel_border = "#6c7086"
+sidebar_border = "#1e1e2e"
+footer_border = "#6c7086"
+
+# ========= Border Active =========
+# Upstream uses a different hue per pane (lavender/red/green), which reads as
+# three unrelated states. Only one pane is focused at a time, so one accent is
+# both calmer and clearer.
+file_panel_border_active = "#94e2d5"
+sidebar_border_active = "#94e2d5"
+footer_border_active = "#94e2d5"
+modal_border_active = "#94e2d5"
+
+# ========= Background (bg) =========
+full_screen_bg = "#1e1e2e"
+file_panel_bg = "#1e1e2e"
+sidebar_bg = "#1e1e2e"
+footer_bg = "#1e1e2e"
+modal_bg = "#1e1e2e"
+
+# ========= Foreground (fg) =========
+full_screen_fg = "#a6adc8"
+file_panel_fg = "#a6adc8"
+sidebar_fg = "#a6adc8"
+footer_fg = "#a6adc8"
+modal_fg = "#a6adc8"
+
+# ========= Special Color =========
+cursor = "#94e2d5"
+correct = "#a6e3a1"
+error = "#f38ba8"
+hint = "#74c7ec"
+cancel = "#eba0ac"
+# Gradient color can only have two color!
+# Teal -> sapphire: enough hue travel to read as a gradient while staying in
+# the accent family (upstream's blue -> mauve leaves it entirely).
+gradient_color = ["#94e2d5", "#74c7ec"]
+
+# ========= File Panel Special Items =========
+file_panel_top_directory_icon = "#94e2d5"
+file_panel_top_path = "#94e2d5"
+# Selection has no fill (bg is base), so it is light-on-dark: a lightened teal
+# keeps the selected row brighter than the teal used for path and icon.
+file_panel_item_selected_fg = "#b2ebe1"
+file_panel_item_selected_bg = "#1e1e2e"
+
+# ========= Sidebar Special Items =========
+sidebar_title = "#94e2d5"
+sidebar_item_selected_fg = "#b2ebe1"
+sidebar_item_selected_bg = "#1e1e2e"
+sidebar_divider = "#585b70"
+
+# ========= Modal Special Items =========
+# These two ARE fills, with the label drawn in the fg key — so the fg must be
+# dark. Crust on teal is 12.6:1; on maroon 9.1:1.
+modal_cancel_fg = "#11111b"
+modal_cancel_bg = "#eba0ac"
+
+modal_confirm_fg = "#11111b"
+modal_confirm_bg = "#94e2d5"
+
+# ========= Help Menu =========
+help_menu_hotkey = "#94e2d5"
+help_menu_title = "#fab387"
