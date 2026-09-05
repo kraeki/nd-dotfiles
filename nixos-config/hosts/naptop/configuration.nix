@@ -167,7 +167,7 @@
   users.users.kraeki = {
     isNormalUser = true;
     description = "Andreas Schmid";
-    extraGroups = [ "networkmanager" "wheel" "docker" "video" "render" ];
+    extraGroups = [ "networkmanager" "wheel" "docker" "libvirtd" "video" "render" ];
     shell = pkgs.zsh;
     packages = with pkgs; [];
 
@@ -512,6 +512,34 @@
     enable = true;
     enableOnBoot = false;  # Start on first docker command, saves ~1.8s boot
   };
+
+  # Full VMs, on top of the in-kernel AMD-V support the CPU already exposes
+  # (/dev/kvm exists out of the box; only the userspace stack is added here).
+  # Deliberately libvirt+virt-manager rather than VirtualBox: VirtualBox needs
+  # an out-of-tree kernel module, which breaks on every `linuxPackages_latest`
+  # bump this config tracks.
+  virtualisation.libvirtd = {
+    enable = true;
+    onBoot = "ignore";      # same stance as docker above - nothing autostarts
+    onShutdown = "shutdown";
+    qemu = {
+      package = pkgs.qemu_kvm;
+      runAsRoot = false;    # guests run as the qemu-libvirtd user, not root
+      swtpm.enable = true;  # emulated TPM 2.0 - a Windows 11 guest refuses to install without one
+      # No `ovmf` block: that submodule was removed from nixpkgs - every OVMF
+      # image (incl. the secure-boot variants) now ships with qemu itself and
+      # is picked up from its firmware descriptors automatically.
+      # virtiofs shares (host directory -> guest) are a vhost-user device, so
+      # the daemon has to be listed here for virt-manager's "Filesystem" device
+      # to have a backend.
+      vhostUserPackages = [ pkgs.virtiofsd ];
+    };
+  };
+  virtualisation.spiceUSBRedirection.enable = true;  # setuid helper for USB passthrough
+  programs.virt-manager.enable = true;
+
+  # No VFIO/GPU passthrough here: the 860M is the only display adapter, so
+  # guests get virtio-gpu. Fine for desktop Linux and Windows office work.
 
   # This value determines the NixOS release from which the default
   # settings for stateful data, like file locations and database versions
