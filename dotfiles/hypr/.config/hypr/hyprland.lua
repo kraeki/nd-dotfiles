@@ -486,8 +486,7 @@ hl.bind(mainMod .. " + down",  hl.dsp.focus({ direction = "down" }), { descripti
 hl.bind(mainMod .. " + H",     hl.dsp.focus({ direction = "left" }), { description = "Focus window left" })
 hl.bind(mainMod .. " + L",     hl.dsp.focus({ direction = "right" }), { description = "Focus window right" })
 hl.bind(mainMod .. " + K",     hl.dsp.focus({ direction = "up" }), { description = "Focus window up" })
--- (Super+J is the dwindle split toggle, see SUBMAPS section below; use
---  Super+Down for focus-down.)
+hl.bind(mainMod .. " + J",     hl.dsp.focus({ direction = "down" }), { description = "Focus window down" })
 hl.bind("ALT + Tab",           hl.dsp.focus({ direction = "down" }), { description = "Focus window down" })
 
 -- Switch workspaces (custom toggle script) + move-window-silent, keys 1..0
@@ -502,7 +501,6 @@ end
 -- Move current workspace to another monitor
 hl.bind(mainMod .. " + SHIFT + H",     hl.dsp.workspace.move({ monitor = "l" }), { description = "Move workspace to monitor left" })
 hl.bind(mainMod .. " + SHIFT + L",     hl.dsp.workspace.move({ monitor = "r" }), { description = "Move workspace to monitor right" })
-hl.bind(mainMod .. " + SHIFT + J",     hl.dsp.workspace.move({ monitor = "d" }), { description = "Move workspace to monitor down" })
 hl.bind(mainMod .. " + SHIFT + K",     hl.dsp.workspace.move({ monitor = "u" }), { description = "Move workspace to monitor up" })
 hl.bind(mainMod .. " + SHIFT + left",  hl.dsp.workspace.move({ monitor = "l" }), { description = "Move workspace to monitor left" })
 hl.bind(mainMod .. " + SHIFT + right", hl.dsp.workspace.move({ monitor = "r" }), { description = "Move workspace to monitor right" })
@@ -535,9 +533,11 @@ hl.bind(mainMod .. " + CTRL + U", hl.dsp.window.move({ workspace = "special", fo
 hl.bind(mainMod .. " + U",        hl.dsp.workspace.toggle_special(), { description = "Toggle scratchpad" })
 
 -- Toggle focused window split (dwindle): rearrange the split the window sits
--- in, horizontal <-> vertical. Super+J is the primary key; Super+N kept as the
--- historical alias.
-hl.bind(mainMod .. " + J", hl.dsp.layout("togglesplit"), { description = "Toggle split direction" })
+-- in, horizontal <-> vertical. Super+Shift+J is the primary key; Super+N kept
+-- as the historical alias. It moved off Super+J so hjkl focus navigation is
+-- complete -- and it displaced the Super+Shift+J "move workspace to monitor
+-- down" alias, which is still on Super+Shift+Down.
+hl.bind(mainMod .. " + SHIFT + J", hl.dsp.layout("togglesplit"), { description = "Toggle split direction" })
 hl.bind(mainMod .. " + N", hl.dsp.layout("togglesplit"), { description = "Toggle split direction (alias)" })
 
 ----------------------------------------------------------------------

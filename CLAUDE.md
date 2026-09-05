@@ -527,7 +527,10 @@ TLP silently removed the cap and left the pack charging to 100%.
   - `S` Signal · `/` 1Password (native apps)
   - `Z` cliamp, the Winamp-styled music TUI (kitty under its own class)
   - `Shift+W` wifi · `Shift+A` audio · `Shift+B` bluetooth · `Shift+M` calendar agenda (vicinae)
-- **Super+J**: Toggle split of focused window, horizontal ↔ vertical (`Super+N` is an alias)
+- **Super+Shift+J**: Toggle split of focused window, horizontal ↔ vertical
+  (`Super+N` is an alias). Moved off `Super+J` so `Super+H/J/K/L` is a
+  complete focus-navigation set; it took the letter alias for "move workspace
+  to monitor down", which is still on `Super+Shift+Down`.
 - **Super+Escape**: Lock screen (hyprlock)
 
 ## Docker
