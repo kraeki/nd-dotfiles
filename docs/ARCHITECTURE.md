@@ -11,6 +11,15 @@ Omarchy's spirit, but declarative all the way down.
 > `hosts/naptop` is a thin consumer, and `install.sh` bootstraps a fresh
 > machine. The paragraph below describes the starting point it replaced.
 >
+> **The two-repo model is in place** — both installers now generate a NEW
+> machine as its own config repo (`~/ndos-config`): a complete flake pinning
+> the distro as an input (`nd.url`), holding that machine's host + home
+> config, with an offered private GitHub remote (`gh repo create --push`).
+> The ISO asks the archinstall basics upfront (user, password, time zone,
+> disk, encryption) and runs unattended after the ERASE confirmation; the
+> distro repo carries only modules, branding, dotfiles and the owner's own
+> hosts.
+>
 > **Phase 6 (ISO installer) is done** — `nix build .#iso` produces the nd
 > live stick; `nd-install` runs wifi → GitHub device-flow auth (repo stays
 > private) → clone → host pick or new-machine probing (disko-owned) → LUKS

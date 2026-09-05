@@ -1,16 +1,28 @@
-# nd-install — runs on the nd ISO. Wifi → GitHub auth → clone → pick or
-# generate a host → disko partitioning → nixos-install → reboot.
-# (Wrapped by writeShellScriptBin in iso/default.nix.)
+# nd-install — runs on the ndos ISO. Wifi → GitHub auth → the archinstall-style
+# questions (user, password, timezone, disk, encryption) → generates YOUR OWN
+# config repo (a complete flake that consumes the ndos distro as an input) →
+# disko partitioning → nixos-install → offers to push the config repo to
+# GitHub → reboot. (Wrapped by writeShellScriptBin in iso/default.nix.)
+#
+# Two-repo model: the distro repo (ND_REPO) carries the modules, branding and
+# installer; the machine you are installing gets its own repo (~/ndos-config on
+# the installed system) holding only its hosts + home config. That repo pins
+# the distro as a flake input, so it is complete in itself — rebuild from it,
+# update the distro with `nix flake update nd`.
 set -euo pipefail
 
 ND_REPO="${ND_REPO:-https://github.com/kraeki/nd-dotfiles.git}"
 ND_DIR="${ND_DIR:-/root/nd-dotfiles}"
+CFG_DIR="${CFG_DIR:-/root/ndos-config}"
+# The generated flake pins the distro via git+https (not github:) so the
+# git credential helper (gh) can serve it while the distro repo is private.
+ND_URL="git+${ND_REPO%.git}"
 
 TEAL=$'\033[36m'; DIM=$'\033[2m'; BOLD=$'\033[1m'; RED=$'\033[31m'; RESET=$'\033[0m'
 say() { printf '%s[nd]%s %s\n' "$TEAL" "$RESET" "$*"; }
 die() { printf '%s[nd]%s %s\n' "$RED" "$RESET" "$*" >&2; exit 1; }
 
-[ "$(id -u)" = 0 ] || exec sudo ND_REPO="$ND_REPO" ND_DIR="$ND_DIR" "$0" "$@"
+[ "$(id -u)" = 0 ] || exec sudo ND_REPO="$ND_REPO" ND_DIR="$ND_DIR" CFG_DIR="$CFG_DIR" "$0" "$@"
 
 printf '%s' "$TEAL"
 cat <<'LOGO'
@@ -27,68 +39,127 @@ if ! nm-online -q -t 5 2>/dev/null; then
   say "No network. Pick a wifi network:"
   nmcli device wifi rescan 2>/dev/null || true; sleep 2
   ssid=$(nmcli -t -f SSID device wifi list | grep -v '^$' | sort -u | gum choose --header "Wifi network")
-  pass=$(gum input --password --header "Passphrase for $ssid")
-  nmcli device wifi connect "$ssid" password "$pass"
+  wpass=$(gum input --password --header "Passphrase for $ssid")
+  nmcli device wifi connect "$ssid" password "$wpass"
   nm-online -q -t 30 || die "Still offline — check the connection and re-run nd-install."
 fi
 
-## 2. GitHub (private repo → device flow: code on screen, confirm on phone)
+## 2. GitHub (device flow: code on screen, confirm on phone). Needed to clone
+##    the private distro repo, and later to offer pushing your config repo.
 if ! gh auth status >/dev/null 2>&1; then
-  say "Authenticate with GitHub (repo is private). A one-time code will appear —"
+  say "Authenticate with GitHub. A one-time code will appear —"
   say "open the URL on your phone and enter it."
   gh auth login --hostname github.com --git-protocol https
 fi
 gh auth setup-git
 
-## 3. Repo
+## 3. The distro
 if [ ! -d "$ND_DIR/.git" ]; then
-  say "Cloning $ND_REPO"
+  say "Cloning the ndos distro ($ND_REPO)"
   git clone "$ND_REPO" "$ND_DIR"
 fi
 
 ## 4. Which machine?
 mapfile -t hosts < <(find "$ND_DIR/hosts" -mindepth 1 -maxdepth 1 -type d -printf '%f\n' | sort)
-choice=$(gum choose --header "Install which machine?" "${hosts[@]}" "✚ new machine (probe hardware)")
+choice=$(gum choose --header "Install which machine?" "✚ new machine (your own config repo)" "${hosts[@]}")
 
 nixeval() { nix --extra-experimental-features 'nix-command flakes' eval "$@"; }
 
-if [ "$choice" = "✚ new machine (probe hardware)" ]; then
+NEW=0
+if [ "$choice" = "✚ new machine (your own config repo)" ]; then
+  NEW=1
+
+  ## 5. The questions (all upfront — nothing more to answer after ERASE)
   host=$(gum input --header "Hostname for this machine" --placeholder "e.g. desktop")
   [ -n "$host" ] || die "A hostname is required."
-  [ -d "$ND_DIR/hosts/$host" ] && die "hosts/$host already exists — pick it from the list instead."
-  username=$(gum input --header "Your username" --value "kraeki")
+  username=$(gum input --header "Your username" --placeholder "e.g. kim")
+  [ -n "$username" ] || die "A username is required."
   fullname=$(gum input --header "Your full name" --value "")
-  release=$(nixos-version | grep -oE '^[0-9]+\.[0-9]+' || echo "25.05")
 
-  # Target disk
+  p1=$(gum input --password --header "Password for $username")
+  p2=$(gum input --password --header "Repeat password")
+  [ "$p1" = "$p2" ] || die "Passwords don't match."
+  [ -n "$p1" ] || die "Empty password."
+
+  tz=$(timedatectl list-timezones 2>/dev/null | gum filter --placeholder "Time zone (type to search)") \
+    || tz=$(gum input --header "Time zone" --value "Europe/Berlin")
+
   mapfile -t disks < <(lsblk -dno NAME,SIZE,MODEL --sort NAME | awk '$1 !~ /^(loop|sr|ram)/ {print "/dev/"$0}')
   disk=$(printf '%s\n' "${disks[@]}" | gum choose --header "Install to which disk? (WILL BE ERASED)" | awk '{print $1}')
 
-  say "Probing hardware"
-  mkdir -p "$ND_DIR/hosts/$host"
-  nixos-generate-config --no-filesystems --show-hardware-config \
-    > "$ND_DIR/hosts/$host/hardware-configuration.nix"
+  if gum confirm "Use the same password for disk encryption?"; then
+    dp="$p1"
+  else
+    d1=$(gum input --password --header "Disk encryption passphrase")
+    d2=$(gum input --password --header "Repeat passphrase")
+    [ "$d1" = "$d2" ] || die "Passphrases don't match."
+    [ -n "$d1" ] || die "Empty passphrase."
+    dp="$d1"
+  fi
+  printf '%s' "$dp" > /tmp/disk.key; unset dp d1 d2
 
-  # disko owns the mounts on a generated host (same layout as naptop:
-  # GPT, 1G ESP, LUKS2 → ext4, no swap).
+  release=$(nixos-version | grep -oE '^[0-9]+\.[0-9]+' || echo "25.05")
+
+  ## 6. Generate YOUR config repo — a complete flake consuming the distro
+  say "Generating your config repo ($CFG_DIR)"
+  rm -rf "$CFG_DIR"; mkdir -p "$CFG_DIR/hosts/$host"
+
+  cat > "$CFG_DIR/flake.nix" <<EOF
+{
+  description = "$host — my machine on the ndos profile";
+
+  inputs = {
+    # The distro. git+https so the git credential helper (gh auth) can serve
+    # it while the distro repo is private; switch to github:… if it goes
+    # public. Update with: nix flake update nd
+    nd.url = "$ND_URL";
+    nixpkgs.follows = "nd/nixpkgs";
+    home-manager.follows = "nd/home-manager";
+  };
+
+  outputs = { self, nd, nixpkgs, home-manager, ... }: {
+    nixosConfigurations.$host = nixpkgs.lib.nixosSystem {
+      system = "x86_64-linux";
+      modules = [
+        home-manager.nixosModules.home-manager
+        nd.nixosModules.default
+        { home-manager.sharedModules = [ nd.homeManagerModules.default ]; }
+        nd.inputs.disko.nixosModules.disko
+        ./hosts/$host
+        { nixpkgs.config.allowUnfree = true; }
+      ];
+    };
+  };
+}
+EOF
+
+  say "Probing hardware"
+  nixos-generate-config --no-filesystems --show-hardware-config \
+    > "$CFG_DIR/hosts/$host/hardware-configuration.nix"
+
+  # Disk layout: the distro's reference layout (GPT, ESP, LUKS2 swap+root),
+  # pointed at the chosen disk. disko owns the mounts on a generated host.
   sed -e "s|/dev/nvme0n1|$disk|" \
       -e '/disko.enableConfig = false;/d' \
       -e '/^#/d' \
-      "$ND_DIR/hosts/naptop/disko.nix" > "$ND_DIR/hosts/$host/disko.nix"
+      "$ND_DIR/hosts/naptop/disko.nix" > "$CFG_DIR/hosts/$host/disko.nix"
 
-  cat > "$ND_DIR/hosts/$host/default.nix" <<EOF
-# $host — generated by the nd ISO installer. Hardware truth only;
-# identity comes from modules/nixos via nd.enable.
-{ config, pkgs, inputs, ... }:
+  cat > "$CFG_DIR/hosts/$host/default.nix" <<EOF
+# $host — generated by the ndos installer. Hardware truth and this machine's
+# basics; identity comes from the nd modules. Toggle what you don't want:
+#   nd.gaming.enable = false;    nd.theme.accent = "mauve";    …
+{ config, pkgs, ... }:
 
 {
   imports = [
     ./hardware-configuration.nix
-    inputs.disko.nixosModules.disko
     ./disko.nix
   ];
 
+  # The whole ndos profile.
   nd.enable = true;
+  nd.locale.timeZone = "$tz";
+  # nd.locale.regionalFormat = "de_DE.UTF-8";   # dates/numbers/paper format
 
   networking.hostName = "$host";
 
@@ -105,37 +176,64 @@ if [ "$choice" = "✚ new machine (probe hardware)" ]; then
   home-manager = {
     useGlobalPkgs = true;
     useUserPackages = true;
-    extraSpecialArgs = { inherit inputs; };
-    users.$username = import ../../users/$username/home.nix;
+    users.$username = import ../../home.nix;
   };
 
+  # NixOS release at first install — do not bump on upgrades.
   system.stateVersion = "$release";
 }
 EOF
 
-  if [ ! -f "$ND_DIR/users/$username/home.nix" ]; then
-    mkdir -p "$ND_DIR/users/$username"
-    cat > "$ND_DIR/users/$username/home.nix" <<EOF
-# $username's home — generated by the nd ISO installer. Add your packages
-# here (see users/kraeki/home.nix for a fuller example).
-{ config, pkgs, inputs, ... }:
+  cat > "$CFG_DIR/home.nix" <<EOF
+# $username's home: the ndos home profile plus whatever is yours.
+{ config, pkgs, ... }:
 
 {
-  imports = [ ../../modules/home ];
+  # ndos home profile (shell with zsh/p10k/fzf/z-lua, tuned Chrome).
   nd.enable = true;
+  # nd.chrome.enable = false;
+
   home.username = "$username";
   home.homeDirectory = "/home/$username";
   home.stateVersion = "$release";
+
   programs.home-manager.enable = true;
-  home.packages = with pkgs; [ firefox ];
+
+  home.packages = with pkgs; [
+    firefox
+  ];
 }
 EOF
-  fi
-  git -C "$ND_DIR" add "hosts/$host" "users/$username"
+
+  cat > "$CFG_DIR/README.md" <<EOF
+# $host
+
+My machine, on the [ndos](${ND_REPO%.git}) profile. Generated by the ndos
+installer; this repo is complete in itself — the distro is a pinned flake
+input.
+
+\`\`\`sh
+sudo nixos-rebuild switch --flake ~/ndos-config#$host   # apply changes
+nix flake update nd                                     # pull distro updates
+nix flake update                                        # update everything
+\`\`\`
+
+Customize via \`nd.*\` options in \`hosts/$host/default.nix\` and \`home.nix\`.
+The distro's stow-managed dotfiles (Hyprland etc.) live in the distro repo:
+clone it and run \`make\` there.
+EOF
+
+  git -C "$CFG_DIR" init -q -b main
+  git -C "$CFG_DIR" add -A
+  git -C "$CFG_DIR" -c user.name="ndos installer" -c user.email="installer@ndos" \
+    commit -qm "machine config for $host, generated by the ndos installer"
+
+  FLAKE_DIR="$CFG_DIR"
 else
+  ## Existing distro-owned host (installs straight from the distro repo)
   host=$choice
-  # An existing host must let disko own its mounts, or the fresh partitions
-  # (new UUIDs) won't match its hardware-configuration.nix.
+  # It must let disko own its mounts, or the fresh partitions (new UUIDs)
+  # won't match its hardware-configuration.nix.
   if [ "$(nixeval "$ND_DIR#nixosConfigurations.$host.config.disko.enableConfig" 2>/dev/null)" != "true" ]; then
     die "hosts/$host still mounts via hardware-configuration.nix UUIDs. Follow the 'Bare-metal reinstall' flip steps in the README (enableConfig + --no-filesystems), push, and re-run."
   fi
@@ -143,39 +241,71 @@ else
   username=$(nixeval --raw "$ND_DIR#nixosConfigurations.$host.config" --apply \
     'c: builtins.head (builtins.filter (n: c.users.users.${n}.isNormalUser or false) (builtins.attrNames c.users.users))' 2>/dev/null) \
     || username=$(gum input --header "Username on $host")
+
+  p1=$(gum input --password --header "Password for $username")
+  p2=$(gum input --password --header "Repeat password")
+  [ "$p1" = "$p2" ] || die "Passwords don't match."
+  [ -n "$p1" ] || die "Empty password."
+
+  d1=$(gum input --password --header "Disk encryption passphrase")
+  d2=$(gum input --password --header "Repeat passphrase")
+  [ "$d1" = "$d2" ] || die "Passphrases don't match."
+  printf '%s' "$d1" > /tmp/disk.key; unset d1 d2
+
+  FLAKE_DIR="$ND_DIR"
 fi
 
-## 5. LUKS passphrase (consumed by disko at format time)
-p1=$(gum input --password --header "Disk encryption passphrase")
-p2=$(gum input --password --header "Repeat passphrase")
-[ "$p1" = "$p2" ] || die "Passphrases don't match."
-[ -n "$p1" ] || die "Empty passphrase."
-printf '%s' "$p1" > /tmp/disk.key
-
-## 6. Point of no return
+## 7. Point of no return — everything after this runs unattended
 echo
 gum confirm --default=false \
   "ERASE $disk and install '$host'? This destroys everything on the disk." \
   || { say "Aborted — nothing was touched."; exit 0; }
 
 say "Partitioning $disk (disko)"
-disko --mode destroy,format,mount --yes-wipe-all-disks --flake "$ND_DIR#$host"
+disko --mode destroy,format,mount --yes-wipe-all-disks --flake "$FLAKE_DIR#$host"
 
 say "Installing (first run downloads/compiles a lot)"
-nixos-install --flake "$ND_DIR#$host" --no-root-passwd
+nixos-install --flake "$FLAKE_DIR#$host" --no-root-passwd
 
-say "Set the password for '$username'"
-nixos-enter --root /mnt -c "passwd $username"
+say "Setting the password for '$username'"
+printf '%s:%s\n' "$username" "$p1" | nixos-enter --root /mnt -c chpasswd
+unset p1 p2
 
-# The repo travels to the new home — including any generated host, so it
-# can be committed and pushed from the installed system.
-say "Copying the repo to the new home"
-mkdir -p "/mnt/home/$username/work"
-cp -r "$ND_DIR" "/mnt/home/$username/work/nd-dotfiles"
-nixos-enter --root /mnt -c "chown -R $username /home/$username/work" || true
+if [ "$NEW" = 1 ]; then
+  # Lock file was written during the build — it pins the distro revision.
+  git -C "$CFG_DIR" add -A
+  git -C "$CFG_DIR" -c user.name="ndos installer" -c user.email="installer@ndos" \
+    commit -qm "lock flake inputs" 2>/dev/null || true
+
+  ## 8. Offer GitHub for the config repo
+  echo
+  if gum confirm "Create a private GitHub repo for this machine's config and push it?"; then
+    reponame=$(gum input --header "Repository name" --value "ndos-config")
+    gh repo create "$reponame" --private --source "$CFG_DIR" --push \
+      && say "Pushed to GitHub as $reponame." \
+      || say "Repo creation failed — the local git repo is intact; push it later with 'gh repo create'."
+  else
+    say "Skipped. The config is a local git repo; push it any time with 'gh repo create'."
+  fi
+
+  say "Moving your config repo to the new home (~/ndos-config)"
+  mkdir -p "/mnt/home/$username"
+  cp -r "$CFG_DIR" "/mnt/home/$username/ndos-config"
+  nixos-enter --root /mnt -c "chown -R $username /home/$username/ndos-config" || true
+else
+  # Distro-owned machine: the distro repo travels to the new home.
+  say "Copying the distro repo to the new home"
+  mkdir -p "/mnt/home/$username/work"
+  cp -r "$ND_DIR" "/mnt/home/$username/work/nd-dotfiles"
+  nixos-enter --root /mnt -c "chown -R $username /home/$username/work" || true
+fi
 
 shred -u /tmp/disk.key 2>/dev/null || rm -f /tmp/disk.key
 echo
-say "${BOLD}Done.${RESET} After reboot: log in, run 'make' in ~/work/nd-dotfiles (dotfiles),"
-say "and commit & push any generated host so this machine is reproducible."
+say "${BOLD}Done.${RESET} After reboot: log in and run 'gh auth login' once so git"
+say "can reach the private distro input (and your config repo, if pushed)."
+if [ "$NEW" = 1 ]; then
+  say "Your machine lives in ~/ndos-config; rebuild with: sudo nixos-rebuild switch --flake ~/ndos-config#$host"
+fi
+say "For the distro's dotfiles (Hyprland etc.): clone the distro repo and run 'make'."
 gum confirm "Reboot now?" && reboot
