@@ -2,7 +2,10 @@
   description = "My machines on the nd system profile";
 
   inputs = {
-    nd.url = "github:kraeki/nd-dotfiles";
+    # git+https so the git credential helper (gh auth login) can serve the
+    # distro while its repo is private; switch to github:kraeki/nd-dotfiles
+    # if it goes public.
+    nd.url = "git+https://github.com/kraeki/nd-dotfiles";
     # Ride nd's locked versions so you get the exact combination it tests.
     nixpkgs.follows = "nd/nixpkgs";
     home-manager.follows = "nd/home-manager";

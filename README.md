@@ -83,14 +83,25 @@ dd if=result/iso/ndos-*.iso of=/dev/sdX bs=4M status=progress
 ```
 
 Boot the stick and run `nd-install`: it connects wifi, authenticates to
-GitHub with a device-flow code (repo is private — confirm on your phone, no
-password typed on the target), clones the repo, and asks which machine this
-is. An existing host installs per its `disko.nix` (after the reinstall flip
-above); "new machine" probes the hardware, asks hostname/username/disk, and
-generates a disko-owned `hosts/<name>/`. Then: LUKS passphrase, one final
-ERASE confirmation, disko partitioning, `nixos-install`, user password,
-reboot. The repo lands in `~/work/nd-dotfiles` on the new system, generated
-host staged for commit.
+GitHub with a device-flow code (the distro repo is private — confirm on your
+phone, no password typed on the target), clones the distro, and asks which
+machine this is.
+
+**New machine (the two-repo model):** the installer asks the archinstall
+basics upfront — hostname, username, full name, password, time zone, target
+disk, disk-encryption passphrase (or reuse the user password) — and turns the
+answers into **your own config repo**: a complete flake with the distro
+pinned as an input (`nd.url`), your `hosts/<name>/` (hardware scan +
+disko-owned disk layout) and `home.nix`. After one ERASE confirmation
+everything runs unattended: disko partitions, `nixos-install` builds, the
+password is set, and you're offered a **private GitHub repo for the config**
+(`gh repo create --push`). The repo lands at `~/ndos-config` on the new
+system — rebuild with `sudo nixos-rebuild switch --flake ~/ndos-config#<name>`,
+pull distro updates with `nix flake update nd`. Your machines live in your
+repo; the distro repo stays clean.
+
+**Existing distro host** (naptop & co) installs straight from the distro repo
+per its `disko.nix` (after the reinstall flip above).
 
 ## CI & binary cache
 

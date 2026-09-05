@@ -61,7 +61,7 @@ nix flake lock --update-input nixpkgs
 ```bash
 curl -sL https://raw.githubusercontent.com/kraeki/nd-dotfiles/main/install.sh | bash
 ```
-Interactive (gum): pick an existing host, or "new machine" to probe hardware via `nixos-generate-config` and generate `hosts/<name>/` + `users/<name>/home.nix`. The flake auto-discovers every directory under `hosts/`, so new hosts need no flake edit. `ND_HOST=<host>` skips prompts.
+Interactive (gum): pick an existing distro host, or "new machine" — which probes hardware and generates **the machine's own config repo** at `~/ndos-config` (two-repo model: a complete flake pinning the distro as the `nd` input, with `hosts/<name>/` + `home.nix`; a private GitHub remote is offered via `gh repo create --push`). The ISO installer (`iso/nd-install.sh`) does the same plus the archinstall basics upfront (user, password, time zone, disk, LUKS) and disko partitioning. Distro-owned hosts under `hosts/` are still auto-discovered by this repo's flake. `ND_HOST=<host>` skips prompts.
 
 ## Key Architecture Details
 
