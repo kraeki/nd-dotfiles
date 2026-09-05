@@ -43,10 +43,9 @@
 
   # The wordmark straight from the branding master. Block glyphs (█ ▀ ▄)
   # render on the kernel console; box-drawing characters do not (verified
-  # in a QEMU boot — they show as hollow boxes).
-  services.getty.helpLine = lib.mkAfter ''
-
-    ${builtins.readFile ../branding/logo.txt}
-      run  nd-install  to begin
-  '';
+  # in a QEMU boot — they show as hollow boxes). Plain concatenation, not an
+  # indented string: ''-interpolation would indent only the first line of
+  # the multi-line wordmark and skew its top row.
+  services.getty.helpLine = lib.mkAfter
+    ("\n" + builtins.readFile ../branding/logo.txt + "\n  run  nd-install  to begin\n");
 }
