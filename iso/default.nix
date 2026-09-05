@@ -22,6 +22,15 @@
 
   nix.settings.experimental-features = [ "nix-command" "flakes" ];
 
+  # Evaluating the full system during install takes a few GB and the live ISO
+  # runs from RAM, so small machines get the nix build OOM-killed. zram gives
+  # them compressed headroom; the installer additionally makes sure the
+  # target's fresh swap partition is on before nixos-install.
+  zramSwap = {
+    enable = true;
+    memoryPercent = 150;
+  };
+
   # Catppuccin console, same palette as modules/nixos/theme.nix.
   console = {
     earlySetup = true;
