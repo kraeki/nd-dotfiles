@@ -27,9 +27,14 @@ die() { printf '%s[nd]%s %s\n' "$RED" "$RESET" "$*" >&2; exit 1; }
 printf '%s' "$TEAL"
 cat <<'LOGO'
 
-  ┌─┐┌─┐
-  │ ││ │  ndos installer
-  └─┘└─┘
+  ███▄▄▄▄   ████████▄   ▄██████▄     ▄████████
+  ███▀▀▀██▄ ███   ▀███ ███    ███   ███    ███
+  ███   ███ ███    ███ ███    ███   ███    █▀
+  ███   ███ ███    ███ ███    ███   ███
+  ███   ███ ███    ███ ███    ███ ▀███████████
+  ███   ███ ███    ███ ███    ███          ███
+  ███   ███ ███   ▄███ ███    ███    ▄█    ███
+   ▀█   █▀  ████████▀   ▀██████▀   ▄████████▀
 LOGO
 printf '%s' "$RESET"
 printf '  %sthis will ERASE a disk on this machine — nothing happens before a final confirmation%s\n\n' "$DIM" "$RESET"

@@ -41,12 +41,12 @@
     (writeShellScriptBin "nd-install" (builtins.readFile ./nd-install.sh))
   ];
 
+  # The wordmark straight from the branding master. Block glyphs (█ ▀ ▄)
+  # render on the kernel console; box-drawing characters do not (verified
+  # in a QEMU boot — they show as hollow boxes).
   services.getty.helpLine = lib.mkAfter ''
 
-      ┌─┐┌─┐
-      │ ││ │  ndos installer
-      └─┘└─┘
-
+    ${builtins.readFile ../branding/logo.txt}
       run  nd-install  to begin
   '';
 }
