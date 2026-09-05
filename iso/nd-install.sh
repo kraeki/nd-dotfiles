@@ -334,6 +334,14 @@ gum confirm --default=false \
 say "Partitioning $disk (disko)"
 disko --mode destroy,format,mount --yes-wipe-all-disks --flake "$FLAKE_DIR#$host"
 
+# Building the system needs a few GB of memory and the live ISO runs from
+# RAM. disko swapons the swap it just created; verify, because without it
+# (or zram) small machines get the nix build OOM-killed mid-install.
+if ! swapon --show=NAME --noheadings | grep -qv zram; then
+  swapon /dev/mapper/cryptswap 2>/dev/null \
+    || say "Warning: no disk swap active — on a machine with little RAM the build may run out of memory."
+fi
+
 say "Installing (first run downloads/compiles a lot)"
 nixos-install --flake "$FLAKE_DIR#$host" --no-root-passwd
 
