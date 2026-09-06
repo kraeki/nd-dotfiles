@@ -99,7 +99,9 @@ if [ "$choice" = "✚ new machine (your own config repo)" ]; then
   tz=$(timedatectl list-timezones 2>/dev/null | gum filter --placeholder "Time zone (type to search)") \
     || tz=$(gum input --header "Time zone" --value "Europe/Berlin")
 
-  mapfile -t disks < <(lsblk -dno NAME,SIZE,MODEL --sort NAME | awk '$1 !~ /^(loop|sr|ram)/ {print "/dev/"$0}')
+  # Real disks only: no loop/cd, and no ram/zram/fd — the ISO itself runs a
+  # zram swap, which showed up here as an "install target" until excluded.
+  mapfile -t disks < <(lsblk -dno NAME,SIZE,MODEL --sort NAME | awk '$1 !~ /^(loop|sr|ram|zram|fd)/ {print "/dev/"$0}')
   disk=$(printf '%s\n' "${disks[@]}" | gum choose --header "Install to which disk? (WILL BE ERASED)" | awk '{print $1}')
 
   # Size the layout for THIS machine, not naptop's. The swap partition exists
