@@ -24,6 +24,16 @@ die() { printf '%s[nd]%s %s\n' "$RED" "$RESET" "$*" >&2; exit 1; }
 
 [ "$(id -u)" = 0 ] || exec sudo ND_REPO="$ND_REPO" ND_DIR="$ND_DIR" CFG_DIR="$CFG_DIR" "$0" "$@"
 
+# ndos installs a UEFI system (systemd-boot, GPT + ESP). The ISO is hybrid and
+# boots under legacy BIOS too — but an install made from a BIOS boot leaves a
+# disk the firmware cannot start ("Booting from Hard Disk..." forever). Catch
+# it here, before any questions.
+[ -d /sys/firmware/efi ] || die "Booted in legacy BIOS mode — ndos needs UEFI.
+     Real hardware: pick the UEFI entry for the stick in the boot menu.
+     virt-manager/QEMU: the VM must use UEFI firmware (OVMF) — choose
+     'Customize configuration before install' when creating the VM, then
+     Overview → Firmware → UEFI."
+
 printf '%s' "$TEAL"
 cat <<'LOGO'
 
