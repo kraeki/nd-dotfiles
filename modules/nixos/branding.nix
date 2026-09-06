@@ -17,16 +17,39 @@
   config = lib.mkIf config.nd.branding.enable {
     boot.plymouth = {
       enable = true;
-      # Rendered from the vector master at build time — no binary in the repo.
-      # Width only — the wordmark is 2.75:1, so pinning both axes would squash it.
-      # 528 = 44 cells x 12px: on a non-multiple of the 44-cell grid the cell
-      # edges land on fractional pixels and rsvg antialiases hairline seams
-      # between the rects. Keep any size change a multiple of 44.
-      logo = pkgs.runCommand "nd-plymouth-logo.png"
-        { nativeBuildInputs = [ pkgs.librsvg ]; }
-        ''
-          rsvg-convert -w 528 ${../../branding/logo.svg} -o $out
-        '';
+      # Own theme instead of `logo` on the stock one: the stock two-step
+      # themes park the watermark at the bottom (WatermarkVerticalAlignment
+      # .96), i.e. BELOW the LUKS passphrase dialog. This is the spinner
+      # theme with the geometry flipped: wordmark above (.25), unlock dialog
+      # under it (.58), spinner near the bottom (.78). Alignment maths:
+      # y = alignment * (screen - image), so at 800px the 192px-tall mark
+      # sits at 152..344 and the dialog starts around 380 — no overlap.
+      theme = "ndos";
+      themePackages = [
+        (pkgs.runCommand "ndos-plymouth-theme"
+          { nativeBuildInputs = [ pkgs.librsvg ]; }
+          ''
+            dir=$out/share/plymouth/themes/ndos
+            mkdir -p $dir
+            cp ${pkgs.plymouth}/share/plymouth/themes/spinner/*.png $dir/
+            # The wordmark, rendered from the vector master at build time —
+            # no binary in the repo. Width only (the mark is 2.75:1; pinning
+            # both axes would squash it); 528 = 44 cells x 12px — off the
+            # 44-cell grid, cell edges land on fractional pixels and rsvg
+            # antialiases hairline seams between the glyph rects.
+            rsvg-convert -w 528 ${../../branding/logo.svg} -o $dir/watermark.png
+            sed -e '/^Name\[/d' \
+                -e 's/^Name=.*/Name=ndos/' \
+                -e 's/^Description=.*/Description=The ndos wordmark above the unlock dialog./' \
+                -e "s|^ImageDir=.*|ImageDir=$dir|" \
+                -e 's/^WatermarkVerticalAlignment=.*/WatermarkVerticalAlignment=.25/' \
+                -e 's/^DialogVerticalAlignment=.*/DialogVerticalAlignment=.58/' \
+                -e 's/^TitleVerticalAlignment=.*/TitleVerticalAlignment=.58/' \
+                -e 's/^VerticalAlignment=.*/VerticalAlignment=.78/' \
+                ${pkgs.plymouth}/share/plymouth/themes/spinner/spinner.plymouth \
+                > $dir/ndos.plymouth
+          '')
+      ];
     };
 
     # Splash instead of scrolling kernel messages. Diagnostics are one
