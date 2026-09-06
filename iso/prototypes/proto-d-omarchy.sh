@@ -17,12 +17,16 @@ LOGO_FILE="${ND_LOGO:-/etc/ndos-logo}"
 [ -r "$LOGO_FILE" ] || LOGO_FILE="$(dirname "$0")/../../branding/logo.txt"
 
 header() {
-  clear
-  gum style --foreground $A "$(cat "$LOGO_FILE")"
-  echo
-  gum style "Let's set up your machine..."
-  gum style --faint "Press Ctrl+C to abort — nothing is erased before the final confirmation."
-  echo
+  # Drawn to /dev/tty, not stdout: the callers below capture the gum result
+  # in $(...), which would otherwise swallow the wordmark. gum draws its own
+  # widgets straight to the tty, so only this chrome needs the redirect.
+  { clear
+    gum style --foreground $A "$(cat "$LOGO_FILE")"
+    echo
+    gum style "Let's set up your machine..."
+    gum style --faint "Press Ctrl+C to abort — nothing is erased before the final confirmation."
+    echo
+  } >/dev/tty
 }
 
 # The accent section label rides in gum's own --header, so there is no stray
