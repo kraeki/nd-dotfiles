@@ -39,6 +39,11 @@
             "configFileName": ".obsidian",
             "vaultPath": "~/obsidian"
          }
+      },
+      "clipboard": {
+         "preferences": {
+            "monitoring": false
+         }
       }
    }
 }
