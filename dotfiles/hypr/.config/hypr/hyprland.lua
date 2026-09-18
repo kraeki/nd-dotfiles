@@ -586,6 +586,99 @@ hl.bind(mainMod .. " + U",        hl.dsp.workspace.toggle_special(), { descripti
 -- inside one does not fire `workspace.active` either (verified on 0.56.2).
 hl.on("workspace.active", hideScratchpads)
 
+----------------------------------------------------------------------
+-- DOUBLE-TAP SUPER: jump back to where you were
+----------------------------------------------------------------------
+-- Tap Super twice, nothing in between, to focus the most recently used window
+-- on a DIFFERENT workspace -- "take me back where I just came from". It lands
+-- on the exact window you had there, so it is workspace back-and-forth and
+-- window restore in one key.
+--
+-- Deliberately does nothing when the only candidates are on the current
+-- workspace: within a workspace, Super+H/J/K/L and Alt+Tab already move focus,
+-- and a modifier double-tap that sometimes alt-tabs and sometimes teleports
+-- would be unpredictable.
+--
+-- Scratchpads are skipped as a TARGET (a special workspace is never jumped
+-- into -- F1/F2/Super+U are for that) but work fine as a SOURCE: double-tapping
+-- out of Slack takes you back to the window underneath, and the
+-- workspace.active sweep above then hides the scratchpad on the way out.
+--
+-- Hyprland cannot bind a bare modifier, so this reads raw key events.
+-- `input.keyboard.key` fires as (keycode, time_msec, state), state 1 = down,
+-- 0 = up. The second argument is a MILLISECOND TIMESTAMP, not a modmask -- it
+-- is monotonic and its deltas track /proc/uptime exactly.
+--
+-- Keycodes are xkb (evdev + 8). Which physical keys produce SUPER is decided by
+-- input.kb_options: `caps:super` makes Caps Lock (66) one and
+-- `altwin:ctrl_alt_win` rotates physical Ctrl (37) into it -- see the modifier
+-- table in CLAUDE.md. 66 is the one confirmed on this keyboard by logging real
+-- presses; to check another key, log (keycode, time, state) from this event and
+-- tap it. Virtual keyboards (wtype, vicinae) cannot trip this by accident: they
+-- ship a one-key keymap and everything they send arrives as keycode 9.
+local superKeycodes = { [66] = true, [37] = true }
+
+local DOUBLE_TAP_MS = 300   -- release to release; real taps measured at 160-180ms
+local MAX_HOLD_MS   = 350   -- longer than this is a held modifier, not a tap
+
+local superDownAt = nil     -- when Super went down; cleared when the hold is tainted
+local lastTapAt   = nil     -- when the last clean Super tap was released
+
+-- Most recently focused window on another, non-special workspace.
+-- focus_history_id is 0 for the focused window, 1 for the one before it, and so
+-- on. hl.get_last_window() is NOT this: it returned the window that had just
+-- been focused (i.e. id 0) once the jump had happened, so consecutive jumps
+-- stalled. Walking focus_history_id is unambiguous.
+local function previousWindowElsewhere()
+    local cur = hl.get_active_workspace()
+    if not cur then return nil end
+
+    local best, bestRank
+    for _, win in ipairs(hl.get_windows()) do
+        local rank, ws = win.focus_history_id, win.workspace
+        if rank and rank >= 1 and ws and not ws.special and ws.id ~= cur.id
+                and (not bestRank or rank < bestRank) then
+            best, bestRank = win, rank
+        end
+    end
+    return best
+end
+
+hl.on("input.keyboard.key", function(keycode, time, state)
+    if not superKeycodes[keycode] then
+        -- Any other key press means this was a chord (Super+Space, Super+3 ...),
+        -- so the current hold is not a tap and the sequence is broken.
+        if state == 1 then
+            superDownAt, lastTapAt = nil, nil
+        end
+        return
+    end
+
+    if state == 1 then
+        superDownAt = time
+        return
+    end
+
+    local downAt = superDownAt
+    superDownAt = nil
+
+    -- Released after a long hold, or the hold was tainted by another key.
+    if not downAt or time - downAt > MAX_HOLD_MS then
+        lastTapAt = nil
+        return
+    end
+
+    if lastTapAt and time - lastTapAt <= DOUBLE_TAP_MS then
+        lastTapAt = nil
+        local target = previousWindowElsewhere()
+        if target then
+            hl.dispatch(hl.dsp.focus({ window = target }))
+        end
+    else
+        lastTapAt = time
+    end
+end)
+
 -- Toggle focused window split (dwindle): rearrange the split the window sits
 -- in, horizontal <-> vertical. Super+Shift+J is the primary key; Super+N kept
 -- as the historical alias. It moved off Super+J so hjkl focus navigation is

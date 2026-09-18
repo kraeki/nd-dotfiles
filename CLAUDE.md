@@ -473,6 +473,43 @@ The rest is testable by dispatching `hl.dsp.focus({workspace=N})` and reading
 `hyprctl monitors -j`; note `hyprctl monitors` hides disabled and mirrored
 outputs, so use `monitors all` when either is in play.
 
+### Double-tap Super (jump back)
+Tapping **Super twice**, with nothing in between, focuses the most recently used
+window on a **different** workspace — "take me back where I came from". It lands
+on the exact window you had there, so it is workspace back-and-forth and window
+restore in one key. It deliberately does nothing when the only candidates are on
+the current workspace (that is what `Super+H/J/K/L` and `Alt+Tab` are for), and
+it never jumps *into* a scratchpad — though double-tapping *out* of one works,
+and the scratchpad sweep above then hides it on the way.
+
+Implemented in the DOUBLE-TAP SUPER block of `hyprland.lua`. Hyprland cannot
+bind a bare modifier, so it reads raw key events. What that cost to learn:
+
+- **`input.keyboard.key` fires as `(keycode, time_msec, state)`** — `state` 1 =
+  down, 0 = up. The second argument looks like a modmask and is **not**: it is a
+  monotonic millisecond timestamp whose deltas track `/proc/uptime` exactly.
+  Modifier keys do emit these events; they do not auto-repeat.
+- **Keycodes are xkb (evdev + 8), and which ones are Super depends on
+  `kb_options`.** `caps:super` makes Caps Lock (66) one; `altwin:ctrl_alt_win`
+  rotates physical Ctrl (37) into it. 66 is confirmed on this keyboard. To find
+  another, log `(keycode, time, state)` from the event and tap the key.
+- **`hl.get_last_window()` is not "the previously focused window".** After a
+  jump it returned the window that had just been focused, so consecutive jumps
+  stalled. `focus_history_id` is unambiguous: 0 is the focused window, 1 the one
+  before it, and so on — walk that instead. `HL.Workspace.special` is what
+  filters scratchpads out of the candidates.
+- **Neither `wtype` nor `hl.dsp.send_key_state` can trigger a Hyprland
+  keybind**, so key-driven features have to be checked by hand. `wtype` *does*
+  reach `input.keyboard.key`, which makes it just usable for testing the state
+  machine — but it ships a one-key keymap, so everything arrives as **keycode 9
+  with `time = 0`**. That exercises the logic and the target pick while proving
+  nothing about the timing windows (and it means virtual keyboards can never
+  trip the real binding by accident).
+
+Tunables at the top of the block: `DOUBLE_TAP_MS = 300` (release to release;
+real taps measured at 160–180ms) and `MAX_HOLD_MS = 350` (longer is a held
+modifier, not a tap).
+
 ### Workspace Layouts
 `Super+M` runs `toggle-workspace-layout [toggle|dwindle|scrolling|status] [-q]`
 in `dotfiles/hypr/.local/share/bin/`.
@@ -769,6 +806,8 @@ The home printer is a **Brother DCP-9015CDW** colour laser MFP.
   complete focus-navigation set; it took the letter alias for "move workspace
   to monitor down", which is still on `Super+Shift+Down`.
 - **Super+Escape**: Lock screen (hyprlock)
+- **Super, Super** (double tap, nothing in between): jump back to the most
+  recently used window on another workspace (see Double-tap Super above)
 
 ## Docker
 
