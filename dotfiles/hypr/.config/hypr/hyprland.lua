@@ -565,6 +565,11 @@ hl.bind("F2", hl.dsp.workspace.toggle_special("obsidian"), { description = "Togg
 hl.bind("F3", hl.dsp.exec_cmd(srcPath .. "/toggle-herdr"), { description = "Toggle herdr scratchpad" })
 hl.bind(mainMod .. " + CTRL + U", hl.dsp.window.move({ workspace = "special", follow = false }), { description = "Move window to scratchpad" })
 hl.bind(mainMod .. " + U",        hl.dsp.workspace.toggle_special(), { description = "Toggle scratchpad" })
+-- Omarchy's scratchpad keys, on the SAME unnamed special workspace as Super+U
+-- above. Omarchy calls its pad "magic"; this is the one general-purpose pad
+-- here, and a second, visually identical one would only be confusing.
+hl.bind(mainMod .. " + CTRL + S", hl.dsp.window.move({ workspace = "special", follow = false }), { description = "Move window to scratchpad" })
+hl.bind(mainMod .. " + S",        hl.dsp.workspace.toggle_special(), { description = "Toggle scratchpad" })
 
 -- Leaving a workspace hides every scratchpad, on EVERY monitor. Three layers,
 -- because no single one covers every way a workspace changes:

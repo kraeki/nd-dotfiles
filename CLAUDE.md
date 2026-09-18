@@ -437,7 +437,7 @@ way at `~/.config/cliamp/themes`; it is harmless only because cliamp never
 writes there.)
 
 ### Scratchpads (special workspaces)
-Slack (`F1`), Obsidian (`F2`) and the unnamed pad (`Super+U`) live on special
+Slack (`F1`), Obsidian (`F2`) and the unnamed pad (`Super+S`, alias `Super+U`) live on special
 workspaces. **Leaving a workspace hides whichever scratchpad is showing, on
 every monitor.** No single mechanism covers that, so `hyprland.lua` uses three:
 
@@ -879,11 +879,16 @@ The home printer is a **Brother DCP-9015CDW** colour laser MFP.
   (`Super+N` is an alias). Moved off `Super+J` so `Super+H/J/K/L` is a
   complete focus-navigation set; it took the letter alias for "move workspace
   to monitor down", which is still on `Super+Shift+Down`.
+- **Super+S**: Toggle the unnamed scratchpad; **Super+Ctrl+S** moves the focused
+  window onto it without following. Omarchy's scratchpad keys (it names the pad
+  "magic"), pointed at the general-purpose special workspace this config already
+  had on `Super+U` / `Super+Ctrl+U` — one pad, three ways in, rather than a
+  second indistinguishable one.
 - **Super+Escape**: Lock screen (hyprlock)
 - **F1 / F2 / F3**: Toggle the Slack / Obsidian / herdr scratchpad
   (`Super+Ctrl+F1|F2|F3` move the focused window onto one). F3 launches herdr on
   first use — see the herdr section above. The unnamed scratchpad is on
-  `Super+U` / `Super+Ctrl+U`.
+  `Super+S` / `Super+U`.
 - **Super, Super** (double tap, nothing in between): jump back to the most
   recently used window on another workspace (see Double-tap Super above)
 
