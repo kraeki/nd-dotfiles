@@ -625,6 +625,62 @@ dropping TLP silently removed the cap and left the pack charging to 100%.
 - The limit is the `limit` binding in that `let`. 80 is the balance point; 60
   roughly halves the calendar-aging rate again if the machine never undocks.
 
+### Printing & Scanning
+`modules/nixos/printing.nix` (`nd.printing.enable` / `nd.printing.scanning.enable`,
+both following `nd.enable`) provides the *capability*: CUPS, Avahi, SANE,
+`system-config-printer`, `simple-scan`. The actual queue is a per-machine
+choice and lives in `hosts/naptop/default.nix`.
+
+The home printer is a **Brother DCP-9015CDW** colour laser MFP.
+
+- **Print driverlessly; never install the Brother .deb.** The device answers
+  `Get-Printer-Attributes` with `document-format-supported = image/urf,
+  image/pwg-raster`, i.e. it is an AirPrint / IPP-Everywhere printer, so
+  `hardware.printers … model = "everywhere"` has CUPS build the PPD from the
+  printer's own answer. Duplex, colour and 2400x600dpi all come through.
+  Confirm any printer this way first:
+  `nix shell nixpkgs#cups -c ipptool -tv ipp://<host>/ipp/print <cups>/share/cups/ipptool/get-printer-attributes.test`
+- The queue is addressed by its Bonjour name `BRW90CDB653E86D.local`, not by
+  IP — the IP is a DHCP lease.
+- **Avahi and systemd-resolved cannot both run.** `modules/nixos/networking.nix`
+  enables resolved, whose `MulticastDNS` defaults to on (`resolvectl mdns` says
+  "yes" on every link) and which holds UDP 5353; Avahi then cannot bind it.
+  `printing.nix` sets `services.resolved.settings.Resolve.MulticastDNS = "no"`
+  so exactly one responder is left, and it has to be Avahi: CUPS' discovery
+  talks to Avahi over D-Bus and has no resolved equivalent.
+- **mDNS needs the firewall opened** (`services.avahi.openFirewall`, UDP 5353).
+  Without it every `.local` lookup dies as `resolve call failed: All attempts
+  to contact name servers or networks failed` — which reads like a DNS problem
+  and is actually a dropped multicast reply.
+- **`cups-browsed` is switched off** (`services.printing.browsed.enable = false`).
+  nixpkgs turns it on with `services.printing.enable`, but it bridges the CUPS
+  1.x broadcast protocol, is deprecated upstream, and on a DNS-SD network its
+  only effect is duplicate queues that appear and vanish. CUPS enumerates
+  DNS-SD printers client-side by itself.
+- **`ensure-printers` is racy by nature.** `lpadmin -m everywhere` *queries*
+  the printer, and the generated unit is ordered after `cups.service` only, so
+  at boot it loses to the Wi-Fi association (`NetworkManager-wait-online` is
+  disabled here, so `network-online.target` settles nothing). `printing.nix`
+  adds a bounded retry — 5 tries, 30s apart — and that is all it needs: the
+  queue persists in `/var/lib/cups` once created, so a failure away from home
+  is inert.
+- **Scanning is the one place a vendor blob is unavoidable.** The DCP speaks
+  neither eSCL/AirScan (`/eSCL/ScannerCapabilities` 404s) nor WSD (5357
+  closed), so `sane-airscan` — the driverless path that would mirror IPP
+  Everywhere — cannot see it. It exposes Brother's own protocol on **TCP
+  54921**, which only the unfree `brscan4` backend speaks.
+  `hardware.sane.brscan4.netDevices` takes the model string **verbatim** from
+  the backend's own table (`opt/brother/scanner/brscan4/models4/ext_*.ini`) —
+  `DCP-9015CDW` is in `ext_15.ini`. Check the generated
+  `/etc/opt/brother/scanner/brscan4/brsanenetdevice4.cfg` resolved a USB ID
+  (`0x4f9:0x3c0`) rather than leaving it blank; a blank one means the model
+  string is wrong. Addressed by **IP**, not nodename: brscan4's `nodename=`
+  lookup is Brother's own broadcast discovery and does not go through Avahi.
+- The user needs the **`scanner` and `lp`** groups.
+- There is a second CUPS on the LAN at `192.168.13.10` (Debian 10, CUPS 2.2.10)
+  already sharing this printer — a legacy print server. Printing straight at
+  the printer over IPP is strictly better; ignore it.
+
 ## Common Keybindings
 
 - **Super+Return**: Terminal (kitty)

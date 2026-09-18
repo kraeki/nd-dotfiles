@@ -19,6 +19,7 @@
     ./locale.nix
     ./networking.nix
     ./power.nix
+    ./printing.nix
     ./theme.nix
   ];
 

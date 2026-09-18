@@ -97,6 +97,57 @@
     rocmOverrideGfx = "11.5.1";  # sets HSA_OVERRIDE_GFX_VERSION for the daemon
   };
 
+  # The home printer: a Brother DCP-9015CDW colour laser MFP on the flat's LAN.
+  # The capability (CUPS, Avahi, SANE) comes from nd.printing; only the queue
+  # itself is per-machine, so it lives here.
+  #
+  # Driverless. The device answers Get-Printer-Attributes with
+  # document-format-supported = image/urf, image/pwg-raster -- i.e. it is an
+  # AirPrint/IPP-Everywhere printer -- so `model = "everywhere"` has CUPS build
+  # the PPD from the printer's own answer. Brother's unfree `dcpl`/`cupswrapper`
+  # .debs are not needed and should not be reached for.
+  #
+  # Addressed by its Bonjour name, not 192.168.13.123: the IP is a DHCP lease
+  # and would silently break the queue the day the router hands out another.
+  # Resolving this needs Avahi up (nd.printing) -- and note `lpadmin -m
+  # everywhere` QUERIES the printer, so the ensure-printers unit fails while
+  # away from home or with the printer asleep. That failure is inert: the queue
+  # persists in /var/lib/cups once created.
+  hardware.printers = {
+    ensureDefaultPrinter = "brother";
+    ensurePrinters = [{
+      name = "brother";
+      description = "Brother DCP-9015CDW";
+      location = "Home";
+      deviceUri = "ipp://BRW90CDB653E86D.local:631/ipp/print";
+      model = "everywhere";
+      ppdOptions = {
+        PageSize = "A4";
+        # The printer's own sides-default is two-sided-long-edge; keep it.
+        Duplex = "DuplexNoTumble";
+      };
+    }];
+  };
+
+  # Scanning. The DCP is an all-in-one, but it speaks NEITHER eSCL/AirScan
+  # (/eSCL/ScannerCapabilities 404s) NOR WSD (port 5357 closed) -- so
+  # sane-airscan, the driverless path that would mirror IPP Everywhere, cannot
+  # see it. What it does expose is Brother's own network-scan protocol on TCP
+  # 54921, which only the unfree brscan4 backend speaks. DCP-9015CDW is in that
+  # backend's model table (models4/ext_15.ini), so it is supported.
+  #
+  # Addressed by IP here, unlike the print queue above: brscan4's `nodename=`
+  # lookup is Brother's own broadcast discovery, not mDNS, and does not go
+  # through Avahi at all. Give the printer a DHCP reservation on the router so
+  # this address is as stable as the Bonjour name is.
+  hardware.sane.brscan4 = {
+    enable = true;
+    netDevices.brother = {
+      model = "DCP-9015CDW";   # must match brscan4's table verbatim
+      ip = "192.168.13.123";
+    };
+  };
+
   # Battery charge ceiling. This laptop lives on AC, and holding a Li-ion cell
   # at 100% SoC is what actually ages it (calendar aging); cycle count is a
   # non-issue here. Capping the charge is the single highest-impact knob.
@@ -144,7 +195,10 @@
   users.users.kraeki = {
     isNormalUser = true;
     description = "Andreas Schmid";
-    extraGroups = [ "networkmanager" "wheel" "docker" "libvirtd" "video" "render" ];
+    # "scanner" + "lp": SANE's device permissions (nd.printing.scanning). Both
+    # are needed — hardware.sane's udev rules grant the scanner group, and the
+    # brscan4 backend also wants lp.
+    extraGroups = [ "networkmanager" "wheel" "docker" "libvirtd" "video" "render" "scanner" "lp" ];
     shell = pkgs.zsh;
     packages = with pkgs; [];
 
