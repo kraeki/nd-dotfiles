@@ -594,15 +594,15 @@ hl.on("workspace.active", hideScratchpads)
 -- on the exact window you had there, so it is workspace back-and-forth and
 -- window restore in one key.
 --
--- Deliberately does nothing when the only candidates are on the current
--- workspace: within a workspace, Super+H/J/K/L and Alt+Tab already move focus,
--- and a modifier double-tap that sometimes alt-tabs and sometimes teleports
--- would be unpredictable.
+-- Does nothing when the previous window is on the workspace you are already on:
+-- within a workspace, Super+H/J/K/L and Alt+Tab already move focus, and a
+-- modifier double-tap that sometimes alt-tabs and sometimes teleports would be
+-- unpredictable.
 --
--- Scratchpads are skipped as a TARGET (a special workspace is never jumped
--- into -- F1/F2/Super+U are for that) but work fine as a SOURCE: double-tapping
--- out of Slack takes you back to the window underneath, and the
--- workspace.active sweep above then hides the scratchpad on the way out.
+-- Scratchpads count in both directions. Double-tap out of Slack and you land
+-- where you came from; double-tap again and you are back in Slack. Jumping to a
+-- normal workspace sweeps the scratchpads away first (see the focus call
+-- below), so the one you left does not stay hanging on the other monitor.
 --
 -- Hyprland cannot bind a bare modifier, so this reads raw key events.
 -- `input.keyboard.key` fires as (keycode, time_msec, state), state 1 = down,
@@ -624,24 +624,53 @@ local MAX_HOLD_MS   = 350   -- longer than this is a held modifier, not a tap
 local superDownAt = nil     -- when Super went down; cleared when the hold is tainted
 local lastTapAt   = nil     -- when the last clean Super tap was released
 
--- Most recently focused window on another, non-special workspace.
--- focus_history_id is 0 for the focused window, 1 for the one before it, and so
--- on. hl.get_last_window() is NOT this: it returned the window that had just
--- been focused (i.e. id 0) once the jump had happened, so consecutive jumps
--- stalled. Walking focus_history_id is unambiguous.
-local function previousWindowElsewhere()
-    local cur = hl.get_active_workspace()
-    if not cur then return nil end
+-- Where you were, tracked by hand.
+--
+-- Neither of Hyprland's own answers is usable here:
+--   - `hl.get_last_window()` is not "the previously focused window" -- after a
+--     jump it returns the window that was just focused, so jumps stall.
+--   - `focus_history_id` (0 = focused, 1 = the one before) misorders around
+--     scratchpads. Leaving the Slack scratchpad for workspace 3 ranked
+--     *Obsidian* at 1 -- a window sitting on a different, hidden special that
+--     had not been touched at all -- and demoted Slack to 2. That is what made
+--     the double-tap refuse to go back into a scratchpad.
+-- The `window.active` event has neither problem: it fires once per real focus
+-- change and does fire for windows on special workspaces.
+--
+-- Addresses are stored rather than window objects, and resolved against live
+-- windows at jump time, so a closed window can never be resurrected.
+local currentWindowAddr, previousWindowAddr
 
-    local best, bestRank
+hl.on("window.active", function(win)
+    local addr = win and win.address
+    -- A nil window is focus being dropped, not a move: keep the pointers.
+    if not addr or addr == currentWindowAddr then return end
+    previousWindowAddr, currentWindowAddr = currentWindowAddr, addr
+end)
+
+local function windowByAddr(addr)
+    if not addr then return nil end
     for _, win in ipairs(hl.get_windows()) do
-        local rank, ws = win.focus_history_id, win.workspace
-        if rank and rank >= 1 and ws and not ws.special and ws.id ~= cur.id
-                and (not bestRank or rank < bestRank) then
-            best, bestRank = win, rank
-        end
+        if win.address == addr then return win end
     end
-    return best
+    return nil
+end
+
+-- The previously focused window, if it is on a different workspace than the one
+-- we are on now. Scratchpads count, in both directions.
+local function previousWindowElsewhere()
+    local prev = windowByAddr(previousWindowAddr)
+    if not prev or not prev.workspace then return nil end
+
+    -- Compare against the CURRENT WINDOW's workspace, not
+    -- hl.get_active_workspace(): standing in a scratchpad, the "active"
+    -- workspace is the normal one underneath it, which would make jumping out
+    -- of a scratchpad look like a same-workspace move and do nothing.
+    local cur   = windowByAddr(currentWindowAddr)
+    local curWs = (cur and cur.workspace) or hl.get_active_workspace()
+    if curWs and prev.workspace.id == curWs.id then return nil end
+
+    return prev
 end
 
 hl.on("input.keyboard.key", function(keycode, time, state)
@@ -672,6 +701,15 @@ hl.on("input.keyboard.key", function(keycode, time, state)
         lastTapAt = nil
         local target = previousWindowElsewhere()
         if target then
+            -- Sweep first, unconditionally, then focus. A jump to a normal
+            -- workspace must not leave a scratchpad hanging on the monitor you
+            -- came from -- and jumping to a workspace that is already displayed
+            -- elsewhere fires no workspace.active, so the handler above will not
+            -- do it for us (the same gap the Super+1..0 binds have to cover).
+            -- Order matters and makes the special case free: hiding the target's
+            -- own scratchpad is undone a line later, because focusing a window
+            -- on a hidden special is what shows that special.
+            hideScratchpads()
             hl.dispatch(hl.dsp.focus({ window = target }))
         end
     else

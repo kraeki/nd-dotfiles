@@ -474,13 +474,16 @@ The rest is testable by dispatching `hl.dsp.focus({workspace=N})` and reading
 outputs, so use `monitors all` when either is in play.
 
 ### Double-tap Super (jump back)
-Tapping **Super twice**, with nothing in between, focuses the most recently used
-window on a **different** workspace — "take me back where I came from". It lands
-on the exact window you had there, so it is workspace back-and-forth and window
-restore in one key. It deliberately does nothing when the only candidates are on
-the current workspace (that is what `Super+H/J/K/L` and `Alt+Tab` are for), and
-it never jumps *into* a scratchpad — though double-tapping *out* of one works,
-and the scratchpad sweep above then hides it on the way.
+Tapping **Super twice**, with nothing in between, focuses the previously focused
+window when it is on a **different** workspace — "take me back where I came
+from". It lands on the exact window you had there, so it is workspace
+back-and-forth and window restore in one key. **Scratchpads count in both
+directions**: double-tap out of Slack and you land where you came from,
+double-tap again and you are back in Slack. Jumping to a normal workspace sweeps
+the scratchpads first, so the one you left does not hang on the other monitor.
+It does nothing when the previous window is on the workspace you are already on
+— `Super+H/J/K/L` and `Alt+Tab` cover that, and a double-tap that sometimes
+alt-tabs and sometimes teleports would be unpredictable.
 
 Implemented in the DOUBLE-TAP SUPER block of `hyprland.lua`. Hyprland cannot
 bind a bare modifier, so it reads raw key events. What that cost to learn:
@@ -493,11 +496,23 @@ bind a bare modifier, so it reads raw key events. What that cost to learn:
   `kb_options`.** `caps:super` makes Caps Lock (66) one; `altwin:ctrl_alt_win`
   rotates physical Ctrl (37) into it. 66 is confirmed on this keyboard. To find
   another, log `(keycode, time, state)` from the event and tap the key.
-- **`hl.get_last_window()` is not "the previously focused window".** After a
-  jump it returned the window that had just been focused, so consecutive jumps
-  stalled. `focus_history_id` is unambiguous: 0 is the focused window, 1 the one
-  before it, and so on — walk that instead. `HL.Workspace.special` is what
-  filters scratchpads out of the candidates.
+- **Neither of Hyprland's own "previous window" answers is usable**, which is
+  why the block keeps its own pointer off the `window.active` event:
+  - `hl.get_last_window()` is not the previously focused window — after a jump
+    it returns the window that was just focused, so consecutive jumps stall.
+  - `focus_history_id` (0 = focused, 1 = the one before) **misorders around
+    scratchpads**. Leaving the Slack scratchpad for workspace 3 ranked
+    *Obsidian* at 1 — a window on a different, hidden special that had not been
+    touched at all — and demoted Slack to 2. That is what made the double-tap
+    refuse to go back into a scratchpad.
+  `window.active` has neither problem: one event per real focus change, and it
+  does fire for windows on special workspaces. Addresses are stored, not window
+  objects, and resolved against live windows at jump time so a closed window
+  cannot be resurrected.
+- **Compare against the current WINDOW's workspace, not
+  `hl.get_active_workspace()`.** Standing in a scratchpad, the "active"
+  workspace is the normal one underneath it, which would make jumping out of a
+  scratchpad look like a same-workspace move and do nothing.
 - **Neither `wtype` nor `hl.dsp.send_key_state` can trigger a Hyprland
   keybind**, so key-driven features have to be checked by hand. `wtype` *does*
   reach `input.keyboard.key`, which makes it just usable for testing the state
@@ -509,6 +524,11 @@ bind a bare modifier, so it reads raw key events. What that cost to learn:
 Tunables at the top of the block: `DOUBLE_TAP_MS = 300` (release to release;
 real taps measured at 160–180ms) and `MAX_HOLD_MS = 350` (longer is a held
 modifier, not a tap).
+
+**Testing hazard: herdr raises its own scratchpad.** With `herdr` running, its
+special workspace re-shows itself and takes focus with no input at all —
+measured over a 12s idle window. It will interpose between any two steps of a
+focus test and make results look like a bug in whatever you are testing.
 
 ### Workspace Layouts
 `Super+M` runs `toggle-workspace-layout [toggle|dwindle|scrolling|status] [-q]`
