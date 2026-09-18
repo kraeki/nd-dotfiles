@@ -657,13 +657,22 @@ The home printer is a **Brother DCP-9015CDW** colour laser MFP.
   1.x broadcast protocol, is deprecated upstream, and on a DNS-SD network its
   only effect is duplicate queues that appear and vanish. CUPS enumerates
   DNS-SD printers client-side by itself.
-- **`ensure-printers` is racy by nature.** `lpadmin -m everywhere` *queries*
-  the printer, and the generated unit is ordered after `cups.service` only, so
-  at boot it loses to the Wi-Fi association (`NetworkManager-wait-online` is
-  disabled here, so `network-online.target` settles nothing). `printing.nix`
-  adds a bounded retry — 5 tries, 30s apart — and that is all it needs: the
-  queue persists in `/var/lib/cups` once created, so a failure away from home
-  is inert.
+- **`ensure-printers` must be ordered after `avahi-daemon`.** `lpadmin -m
+  everywhere` *queries* the printer, and nixpkgs orders the generated unit
+  after `cups.service` only. A Bonjour-named queue resolves through nss-mdns,
+  i.e. through **Avahi** — not through systemd-resolved, whose mDNS is off
+  here — so without that ordering the first run after a switch dies on
+  `lpadmin: Unable to connect to BRW90CDB653E86D.local:631: Name or service
+  not known` while `getent hosts` answers correctly seconds later. This cost a
+  debugging round; the error names DNS and looks like the printer is absent.
+- The unit also races the Wi-Fi association at boot (`NetworkManager-wait-online`
+  is disabled here, so `network-online.target` settles nothing), so
+  `printing.nix` adds a bounded retry — 5 tries, 30s apart, then it stops
+  rather than polling forever. Giving up is inert: the queue persists in
+  `/var/lib/cups` once created, so a failure away from home costs only a red
+  unit. After a failed run clear it with `systemctl reset-failed
+  ensure-printers` before starting it again, or systemd refuses with
+  `start-limit-hit`.
 - **Scanning is the one place a vendor blob is unavoidable.** The DCP speaks
   neither eSCL/AirScan (`/eSCL/ScannerCapabilities` 404s) nor WSD (5357
   closed), so `sane-airscan` — the driverless path that would mirror IPP
