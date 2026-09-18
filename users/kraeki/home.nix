@@ -26,7 +26,7 @@ in
   programs.zsh.shellAliases = {
     vi = "nvim";
     hc = "vi ~/.config/hypr";
-    nc = "cd ~/work/nd-dotfiles; vi ./hosts/naptop/default.nix";
+    nc = "cd ~/work/ndos; vi ./hosts/naptop/default.nix";
     # Always start Claude Code in bypass-permissions mode.
     # ~/.claude/settings.json already sets skipDangerousModePermissionPrompt,
     # so this starts straight into the session without the confirmation screen.
