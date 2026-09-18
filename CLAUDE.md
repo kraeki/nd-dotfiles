@@ -436,6 +436,43 @@ before `make`, or unfold afterwards. (`dotfiles/cliamp` is already folded this
 way at `~/.config/cliamp/themes`; it is harmless only because cliamp never
 writes there.)
 
+### Scratchpads (special workspaces)
+Slack (`F1`), Obsidian (`F2`) and the unnamed pad (`Super+U`) live on special
+workspaces. **Leaving a workspace hides whichever scratchpad is showing, on
+every monitor.** No single mechanism covers that, so `hyprland.lua` uses three:
+
+- `binds:hide_special_on_workspace_change` in `hl.config` — Hyprland's own, and
+  the only one animated inline with the workspace change. It clears the special
+  **only on the monitor whose workspace changed**.
+- `hl.on("workspace.active", hideScratchpads)` — sweeps the remaining monitors
+  and covers the paths that never reach the `Super+1..0` binds: the 4-finger
+  swipe, waybar clicks, `focus({workspace="previous"})`.
+- the `Super+1..0` binds call `hideScratchpads()` themselves, because switching
+  to a workspace **already displayed on the other monitor** only moves monitor
+  focus: nothing becomes active, so no event fires and the native option has
+  nothing to act on. Docked, that is the everyday case (`Super+3` from the
+  monitor holding the scratchpad) and it is the bug this fixes.
+
+Two traps in the implementation:
+- **`set_special_workspace("")` is the per-monitor clear.** Calling it with no
+  argument — or with `nil`, which Lua cannot tell apart from a missing one —
+  throws `attempt to index a nil value`; the binding indexes whatever it is
+  handed.
+- **`toggle_special` cannot be used for this.** It always acts on the *focused*
+  monitor, so a scratchpad open elsewhere is *dragged onto the monitor you are
+  switching to* instead of hidden. `toggle_workspace.sh` used to close
+  scratchpads exactly that way, which is why the scratchpad appeared to follow
+  you around; that block is gone.
+
+Showing a scratchpad is safe from the sweep: it fires `workspace.special_active`,
+not `workspace.active`, and focusing a window inside one fires neither.
+
+Synthetic keys cannot test this — neither `wtype` nor `hl.dsp.send_key_state`
+triggers a Hyprland keybind, so the `Super+N` path has to be checked by hand.
+The rest is testable by dispatching `hl.dsp.focus({workspace=N})` and reading
+`hyprctl monitors -j`; note `hyprctl monitors` hides disabled and mirrored
+outputs, so use `monitors all` when either is in play.
+
 ### Workspace Layouts
 `Super+M` runs `toggle-workspace-layout [toggle|dwindle|scrolling|status] [-q]`
 in `dotfiles/hypr/.local/share/bin/`.

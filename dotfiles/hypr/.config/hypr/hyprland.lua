@@ -157,6 +157,12 @@ hl.config({
         touchpad = { natural_scroll = true },
     },
 
+    -- Switching workspace hides an open scratchpad (special workspace). Native
+    -- and animated inline with the workspace change, but only for the monitor
+    -- whose workspace changed -- see the workspace.active sweep further down,
+    -- which covers the other monitors.
+    binds = { hide_special_on_workspace_change = true },
+
     dwindle = { preserve_split = true },
 
     -- Scrolling layout (Super+M toggles the workspace into it). Hyprland's
@@ -489,10 +495,33 @@ hl.bind(mainMod .. " + K",     hl.dsp.focus({ direction = "up" }), { description
 hl.bind(mainMod .. " + J",     hl.dsp.focus({ direction = "down" }), { description = "Focus window down" })
 hl.bind("ALT + Tab",           hl.dsp.focus({ direction = "down" }), { description = "Focus window down" })
 
+-- Hide every scratchpad (special workspace) currently on screen, on EVERY
+-- monitor. See the "Special workspaces" block below for why this exists and why
+-- it clears per monitor instead of using toggle_special.
+--
+-- The argument has to be the empty string: set_special_workspace() with no
+-- argument -- or with nil, which Lua cannot tell apart from a missing one --
+-- throws "attempt to index a nil value", because the binding indexes whatever
+-- it is handed. "" is the selector that means "no special workspace".
+local function hideScratchpads()
+    for _, mon in ipairs(hl.get_monitors()) do
+        if mon.active_special_workspace then
+            mon:set_special_workspace("")
+        end
+    end
+end
+
 -- Switch workspaces (custom toggle script) + move-window-silent, keys 1..0
 for i = 1, 10 do
     local key = i % 10   -- 10 -> key 0
-    hl.bind(mainMod .. " + " .. key,          hl.dsp.exec_cmd(srcPath .. "/toggle_workspace.sh " .. i),
+    -- The sweep is called here rather than left to the workspace.active handler
+    -- because switching to a workspace that is ALREADY displayed on the other
+    -- monitor only moves monitor focus -- no workspace becomes active, so no
+    -- event fires, and docked that is the common case.
+    hl.bind(mainMod .. " + " .. key, function()
+            hideScratchpads()
+            hl.dispatch(hl.dsp.exec_cmd(srcPath .. "/toggle_workspace.sh " .. i))
+        end,
         { description = "Switch to workspace " .. i })
     hl.bind(mainMod .. " + CTRL + " .. key,   hl.dsp.window.move({ workspace = i, follow = false }),
         { description = "Move window to workspace " .. i .. " (stay here)" })
@@ -531,6 +560,31 @@ hl.bind("F2", hl.dsp.workspace.toggle_special("obsidian"), { description = "Togg
 hl.bind("F3", hl.dsp.workspace.toggle_special(), { description = "Toggle scratchpad" })
 hl.bind(mainMod .. " + CTRL + U", hl.dsp.window.move({ workspace = "special", follow = false }), { description = "Move window to scratchpad" })
 hl.bind(mainMod .. " + U",        hl.dsp.workspace.toggle_special(), { description = "Toggle scratchpad" })
+
+-- Leaving a workspace hides every scratchpad, on EVERY monitor. Three layers,
+-- because no single one covers every way a workspace changes:
+--
+--  1. `binds:hide_special_on_workspace_change` (see hl.config) is Hyprland's own
+--     mechanism, animated inline with the workspace change -- but it only clears
+--     the special on the monitor whose workspace actually changed. Docked, the
+--     scratchpad you just walked away from sits on the *other* monitor and stays
+--     on screen.
+--  2. This handler sweeps the remaining monitors, and covers the switch paths
+--     that never touch the Super+1..0 binds: the 4-finger swipe, waybar clicks,
+--     and focus({workspace="previous"}).
+--  3. The Super+1..0 binds call hideScratchpads() themselves, because switching
+--     to a workspace that is already displayed on the other monitor only moves
+--     monitor focus -- nothing becomes active, so this handler never fires.
+--
+-- `set_special_workspace("")` is the per-monitor "clear" (see hideScratchpads).
+-- `toggle_special` cannot be used: it always acts on the FOCUSED monitor, so a
+-- scratchpad open elsewhere gets dragged onto the monitor you are switching to
+-- rather than hidden -- which is exactly what toggle_workspace.sh used to do.
+--
+-- Safe against closing the scratchpad you just opened: showing a special fires
+-- `workspace.special_active`, not `workspace.active`, and focusing a window
+-- inside one does not fire `workspace.active` either (verified on 0.56.2).
+hl.on("workspace.active", hideScratchpads)
 
 -- Toggle focused window split (dwindle): rearrange the split the window sits
 -- in, horizontal <-> vertical. Super+Shift+J is the primary key; Super+N kept

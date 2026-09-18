@@ -6,21 +6,13 @@ current_workspace=$(hyprctl activeworkspace -j | jq '.id')
 # Define the target workspace
 target_workspace=$1
 
-# Close any visible special workspaces before switching
-# Check monitors for visible special workspaces
-visible_special=$(hyprctl monitors -j | jq -r '.[] | .specialWorkspace | select(.id != 0) | .name')
-if [ -n "$visible_special" ]; then
-	while IFS= read -r workspace; do
-		workspace_name=${workspace#special:}
-		if [ -z "$workspace_name" ]; then
-			# Generic special workspace
-			hyprctl dispatch 'hl.dsp.workspace.toggle_special()'
-		else
-			# Named special workspace (slack, obsidian, etc.)
-			hyprctl dispatch "hl.dsp.workspace.toggle_special(\"$workspace_name\")"
-		fi
-	done <<< "$visible_special"
-fi
+# Hiding the open scratchpad is NOT done here any more. This used to close every
+# visible special workspace before switching, via toggle_special -- which always
+# acts on the FOCUSED monitor, so a scratchpad open on the other monitor was
+# *moved onto the one you were switching to* rather than hidden. It now lives in
+# hyprland.lua (binds:hide_special_on_workspace_change plus a workspace.active
+# sweep), which also covers the paths that never go through this script: the
+# 4-finger swipe, waybar clicks, and focus({workspace="previous"}) below.
 
 if [ "$current_workspace" -eq "$target_workspace" ]; then
 	# If we are already on the target workspace, move to the previous one
