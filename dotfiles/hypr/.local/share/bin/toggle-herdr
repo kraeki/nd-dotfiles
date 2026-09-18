@@ -1,0 +1,98 @@
+#!/usr/bin/env bash
+#
+# toggle-herdr [toggle|on|off|status] [-q]
+#
+# Show/hide herdr (the terminal agent-multiplexer) on its own special
+# workspace, bound to F3 -- the scratchpad counterparts of Slack (F1) and
+# Obsidian (F2).
+#
+# Unlike those two, herdr is NOT autostarted in exec-once: it is a TUI that
+# needs a terminal, and starting a kitty+herdr at every login costs a session
+# nobody asked for. So the first F3 launches it and the window rule in
+# hyprland.lua drops it on special:herdr; every later F3 is a plain toggle.
+#
+# A window rule placing a window on a special workspace does NOT make that
+# workspace visible, so after launching we wait for the client to appear and
+# then toggle it into view ourselves -- checking visibility first, in case
+# Hyprland already showed it.
+set -euo pipefail
+
+class="herdr"
+special="herdr"           # workspace is "special:herdr"
+launch=(kitty --class "$class" -e herdr)
+
+quiet=0
+action="toggle"
+for arg in "$@"; do
+  case "$arg" in
+    -q | --quiet) quiet=1 ;;
+    toggle | on | off | status) action="$arg" ;;
+    *) echo "usage: toggle-herdr [toggle|on|off|status] [-q]" >&2; exit 1 ;;
+  esac
+done
+
+notify() {
+  ((quiet)) && return 0
+  command -v dunstify >/dev/null 2>&1 && dunstify -a "herdr" -r 91345 -t 1500 "$1" || true
+}
+
+# Is a herdr window alive anywhere (including on the hidden special workspace)?
+client_exists() {
+  hyprctl clients -j | jq -e --arg c "$class" 'any(.[]; .class == $c)' >/dev/null
+}
+
+# Is special:herdr currently shown on some monitor? Note `hyprctl monitors`
+# reports the special workspace it displays in .specialWorkspace.
+is_visible() {
+  hyprctl monitors -j |
+    jq -e --arg w "special:$special" 'any(.[]; .specialWorkspace.name == $w)' >/dev/null
+}
+
+show() { hyprctl dispatch "hl.dsp.workspace.toggle_special(\"$special\")" >/dev/null; }
+
+# Launch and wait for the window rule to land it on the special workspace.
+# ~5s: herdr restores its session/panes before mapping a window.
+#
+# HERDR_* is scrubbed from the environment first: herdr refuses to start inside
+# itself ("nested herdr is disabled by default") and exits, taking kitty with
+# it. Hyprland's own environment is clean, so F3 is unaffected -- but running
+# this script by hand from a shell that already lives in a herdr pane is not,
+# and that is exactly how it gets tested.
+launch_and_wait() {
+  local strip=() name
+  while IFS='=' read -r name _; do strip+=(-u "$name"); done < <(env | grep '^HERDR_' || true)
+
+  setsid env ${strip[@]+"${strip[@]}"} "${launch[@]}" >/dev/null 2>&1 &
+  for _ in $(seq 1 50); do
+    client_exists && return 0
+    sleep 0.1
+  done
+  return 1
+}
+
+case "$action" in
+  status)
+    if ! client_exists; then echo "not running"
+    elif is_visible; then echo "visible"
+    else echo "hidden"
+    fi
+    ;;
+  on)
+    if ! client_exists; then
+      launch_and_wait || { notify "herdr failed to start"; exit 1; }
+    fi
+    is_visible || show
+    ;;
+  off)
+    is_visible && show
+    ;;
+  toggle)
+    if ! client_exists; then
+      notify "starting herdr…"
+      launch_and_wait || { notify "herdr failed to start"; exit 1; }
+      is_visible || show
+    else
+      show
+    fi
+    ;;
+esac

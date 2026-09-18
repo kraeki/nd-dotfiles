@@ -432,9 +432,9 @@ local function sendShortcutOnce(mods, key)
 end
 
 -- Omarchy keys this off its window tags; this config has none, so match on the
--- class instead. "cliamp" is listed because it is a kitty window flying under
--- its own class (see the Super+A submap, Z).
-local terminalClasses = { "kitty", "ghostty", "foot", "alacritty", "wezterm", "xterm", "cliamp" }
+-- class instead. "cliamp" and "herdr" are listed because both are kitty windows
+-- flying under their own class (Super+A submap Z, and the F3 scratchpad).
+local terminalClasses = { "kitty", "ghostty", "foot", "alacritty", "wezterm", "xterm", "cliamp", "herdr" }
 
 local function activeWindowIsTerminal()
     local ok, window = pcall(hl.get_active_window)
@@ -554,10 +554,15 @@ hl.bind(mainMod .. " + Z",         hl.dsp.window.drag(),   { mouse = true , desc
 -- Special workspaces (scratchpads)
 hl.bind(mainMod .. " + CTRL + F1", hl.dsp.window.move({ workspace = "special:slack",    follow = false }), { description = "Move window to Slack scratchpad" })
 hl.bind(mainMod .. " + CTRL + F2", hl.dsp.window.move({ workspace = "special:obsidian", follow = false }), { description = "Move window to Obsidian scratchpad" })
-hl.bind(mainMod .. " + CTRL + F3", hl.dsp.window.move({ workspace = "special",          follow = false }), { description = "Move window to scratchpad" })
+hl.bind(mainMod .. " + CTRL + F3", hl.dsp.window.move({ workspace = "special:herdr",    follow = false }), { description = "Move window to herdr scratchpad" })
 hl.bind("F1", hl.dsp.workspace.toggle_special("slack"), { description = "Toggle Slack scratchpad" })
 hl.bind("F2", hl.dsp.workspace.toggle_special("obsidian"), { description = "Toggle Obsidian scratchpad" })
-hl.bind("F3", hl.dsp.workspace.toggle_special(), { description = "Toggle scratchpad" })
+-- F3 is herdr, the terminal agent-multiplexer. It goes through a script rather
+-- than a bare toggle_special because herdr is not autostarted: the first press
+-- launches "kitty --class herdr -e herdr" (the window rule below parks it on
+-- special:herdr) and then shows the workspace; later presses just toggle. The
+-- unnamed scratchpad F3 used to hold is still on Super+U / Super+Ctrl+U.
+hl.bind("F3", hl.dsp.exec_cmd(srcPath .. "/toggle-herdr"), { description = "Toggle herdr scratchpad" })
 hl.bind(mainMod .. " + CTRL + U", hl.dsp.window.move({ workspace = "special", follow = false }), { description = "Move window to scratchpad" })
 hl.bind(mainMod .. " + U",        hl.dsp.workspace.toggle_special(), { description = "Toggle scratchpad" })
 
@@ -816,6 +821,7 @@ end)
 
 hl.workspace_rule({ workspace = "special:slack",    no_rounding = true, border_size = 0 })
 hl.workspace_rule({ workspace = "special:obsidian", no_rounding = true, border_size = 0 })
+hl.workspace_rule({ workspace = "special:herdr",    no_rounding = true, border_size = 0 })
 
 ----------------------------------------------------------------------
 -- WINDOW RULES
@@ -824,6 +830,10 @@ hl.workspace_rule({ workspace = "special:obsidian", no_rounding = true, border_s
 -- Scratchpad placement
 hl.window_rule({ name = "windowrule-1", match = { class = "^([Ss]lack)$" },    workspace = "special:slack" })
 hl.window_rule({ name = "windowrule-2", match = { class = "^(obsidian)$" }, workspace = "special:obsidian" })
+-- herdr is a TUI, so it is a kitty window flying under its own class (same
+-- trick as cliamp) -- that is what lets toggle-herdr find it and what pins it
+-- to its scratchpad.
+hl.window_rule({ name = "windowrule-herdr", match = { class = "^(herdr)$" }, workspace = "special:herdr" })
 
 -- Google Meet always on workspace 2
 hl.window_rule({ name = "meets-on-workspace2", match = { class = "^(google-chrome)$", title = "^(Meet - .*)$" }, workspace = "2" })

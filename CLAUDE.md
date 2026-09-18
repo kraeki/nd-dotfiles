@@ -530,6 +530,44 @@ special workspace re-shows itself and takes focus with no input at all —
 measured over a 12s idle window. It will interpose between any two steps of a
 focus test and make results look like a bug in whatever you are testing.
 
+### herdr (agent-multiplexer scratchpad)
+
+`F3` toggles **herdr** — the terminal multiplexer for AI coding agents
+(herdr.dev) — on its own special workspace, alongside the Slack (`F1`) and
+Obsidian (`F2`) scratchpads. `Super+Ctrl+F3` throws the focused window onto it.
+The unnamed scratchpad `F3` used to hold is unchanged on `Super+U` /
+`Super+Ctrl+U`.
+
+The package lives in `pkgs/` and is pulled in with `pkgs.callPackage`: herdr is
+not in nixpkgs, so the upstream prebuilt binary is patchelf'd onto the NixOS
+loader (bump `version` + `hash` together).
+
+The bind runs `toggle-herdr [toggle|on|off|status] [-q]` in
+`dotfiles/hypr/.local/share/bin/` rather than a bare
+`hl.dsp.workspace.toggle_special("herdr")`, because unlike Slack and Obsidian
+**herdr is deliberately not in `exec-once`** — it is a TUI, so autostarting it
+would mean a kitty plus a herdr session at every login. The first `F3` launches
+it; every later one is a plain toggle.
+
+- It is `kitty --class herdr -e herdr`, i.e. a kitty window under its **own**
+  class (the cliamp trick), which is what both the window rule and the script's
+  own "is it already running?" check key off. That class is therefore also in
+  `terminalClasses`, so universal copy/paste sends it `Ctrl+Shift+C/V`.
+- **A window rule placing a window on a special workspace does not show that
+  workspace.** So the script launches, polls `hyprctl clients` until the window
+  exists, and then toggles it into view itself — checking visibility first so it
+  does not immediately hide a workspace Hyprland already put up.
+- `hyprctl monitors` reports the special workspace a monitor displays in
+  `.specialWorkspace.name`; that is the visibility test (`special:herdr`).
+- **The launch scrubs `HERDR_*` from the environment.** herdr refuses to start
+  inside itself ("nested herdr is disabled by default") and exits, taking kitty
+  with it. Hyprland's environment is clean so `F3` never hits this — but a shell
+  running *inside* a herdr pane is exactly where the script gets run by hand,
+  and there it would silently fail.
+- herdr keeps a background `herdr server`, so a second client attaches to the
+  same session rather than starting a fresh one; closing the scratchpad window
+  detaches, it does not kill the session.
+
 ### Workspace Layouts
 `Super+M` runs `toggle-workspace-layout [toggle|dwindle|scrolling|status] [-q]`
 in `dotfiles/hypr/.local/share/bin/`.
@@ -842,6 +880,10 @@ The home printer is a **Brother DCP-9015CDW** colour laser MFP.
   complete focus-navigation set; it took the letter alias for "move workspace
   to monitor down", which is still on `Super+Shift+Down`.
 - **Super+Escape**: Lock screen (hyprlock)
+- **F1 / F2 / F3**: Toggle the Slack / Obsidian / herdr scratchpad
+  (`Super+Ctrl+F1|F2|F3` move the focused window onto one). F3 launches herdr on
+  first use — see the herdr section above. The unnamed scratchpad is on
+  `Super+U` / `Super+Ctrl+U`.
 - **Super, Super** (double tap, nothing in between): jump back to the most
   recently used window on another workspace (see Double-tap Super above)
 
