@@ -734,8 +734,24 @@ The home printer is a **Brother DCP-9015CDW** colour laser MFP.
   printer's own answer. Duplex, colour and 2400x600dpi all come through.
   Confirm any printer this way first:
   `nix shell nixpkgs#cups -c ipptool -tv ipp://<host>/ipp/print <cups>/share/cups/ipptool/get-printer-attributes.test`
+- **`ipptool` is also the only honest way to ask "is IPP alive?" — never
+  `curl`.** The Brother serves no plain HTTP on 631, so
+  `curl http://<ip>:631/` returns `000` against a perfectly healthy printer.
+  That false negative cost a round of debugging: after a power cycle had in
+  fact revived the printer, the `curl` probe still said dead while `nmap`
+  reported `631/tcp open` and `ipptool` passed 4/4. Cross-check a suspect
+  printer with `nmap -Pn -p 80,443,515,631,9100,54921 <ip>` — a wedged Brother
+  accepts TCP on every port while answering on none, so "open" alone proves
+  nothing either.
 - The queue is addressed by its Bonjour name `BRW90CDB653E86D.local`, not by
   IP — the IP is a DHCP lease.
+- **A wedged printer looks exactly like a broken config.** This one stopped
+  serving IPP (and then HTTP) mid-evening having worked that morning; every
+  `lpadmin` attempt failed with `Connection timed out` while the device still
+  answered ping in 3ms. Only a power cycle **at the mains** clears it — the
+  front-panel button is a soft sleep and leaves the network stack wedged.
+  Suspect the hardware once `getent hosts <name>.local` resolves but IPP does
+  not answer; the config side is proven by resolution working.
 - **Avahi and systemd-resolved cannot both run.** `modules/nixos/networking.nix`
   enables resolved, whose `MulticastDNS` defaults to on (`resolvectl mdns` says
   "yes" on every link) and which holds UDP 5353; Avahi then cannot bind it.
