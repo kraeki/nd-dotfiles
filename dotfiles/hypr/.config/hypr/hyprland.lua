@@ -840,8 +840,56 @@ hl.window_rule({ name = "windowrule-2", match = { class = "^(obsidian)$" }, work
 -- to its scratchpad.
 hl.window_rule({ name = "windowrule-herdr", match = { class = "^(herdr)$" }, workspace = "special:herdr" })
 
--- Google Meet always on workspace 2
-hl.window_rule({ name = "meets-on-workspace2", match = { class = "^(google-chrome)$", title = "^(Meet - .*)$" }, workspace = "2" })
+-- Google Meet always on workspace 2.
+--
+-- This CANNOT be a window rule, which is what it used to be:
+--   match = { class = "^(google-chrome)$", title = "^(Meet - .*)$" }, workspace = "2"
+-- `workspace` is a STATIC rule, evaluated once when the window maps -- and a
+-- Chrome window's title at map time is "New Tab - Google Chrome" or
+-- "Untitled - Google Chrome", never the page title. `hyprctl clients -j` shows
+-- it as `.initialTitle` on every Chrome window here. The page title only
+-- arrives later, as a `window.title` event, by which point the static rule has
+-- long since been applied. So that rule matched nothing, ever.
+--
+-- Moving from the event instead is the fix. Two things it has to get right:
+--
+--  * BOTH dash characters. Google writes named meetings with a hyphen and
+--    meeting codes with an EN DASH: Chrome's history here has
+--    "Meet - 1o1 - Chad / Andreas (monthly)" next to "Meet – hmn-dfnx-bkn"
+--    (U+2013, the three bytes \226\128\147 in a Lua pattern). The old regex
+--    only knew the hyphen.
+--  * Requiring the dash directly after "Meet" is what keeps an ordinary page
+--    titled "Meet the team" out of workspace 2. Chrome appends
+--    " - Google Chrome" to all of it, hence no anchoring at the end.
+--
+-- Each window is moved AT MOST ONCE. A Meet title changes more than once early
+-- on (the code resolves to the meeting name as you join), and without the guard
+-- a window you deliberately dragged somewhere else would be yanked back.
+local meetTitlePatterns = { "^Meet %-", "^Meet \226\128\147", "^Google Meet %-" }
+local meetWindowsPlaced = {}
+
+hl.on("window.title", function(win)
+    local addr = win and win.address
+    if not addr or meetWindowsPlaced[addr] then return end
+    if win.class ~= "google-chrome" then return end
+
+    local title = win.title or ""
+    for _, pattern in ipairs(meetTitlePatterns) do
+        if title:match(pattern) then
+            meetWindowsPlaced[addr] = true
+            -- No `follow = false`: you just clicked Join, so going along with
+            -- the window is the point.
+            hl.dispatch(hl.dsp.window.move({ workspace = "2", window = "address:" .. addr }))
+            return
+        end
+    end
+end)
+
+-- Closed windows drop out of the "already placed" set, so Hyprland reusing an
+-- address later cannot silently disable the move for it.
+hl.on("window.close", function(win)
+    if win and win.address then meetWindowsPlaced[win.address] = nil end
+end)
 
 -- Opacity (and float) rules
 hl.window_rule({ name = "windowrule-3",  match = { class = "^(kitty)$" },          opacity = "0.80 0.80" })

@@ -139,6 +139,33 @@ This separation keeps system concerns distinct from user preferences and makes h
   - `mirror="none"` is what clears a mirror; a geometry rule alone does not
     (same shape as the `disabled=` flag needing an explicit clear).
 
+### Title-matched window rules (the Google Meet trap)
+**A `workspace` window rule can never match a browser page title.** Static rules
+(`workspace`, `float`, `size`, `move`, `monitor`, …) are evaluated once, when the
+window maps, and a Chrome window's title at that moment is `New Tab - Google
+Chrome` or `Untitled - Google Chrome` — `hyprctl clients -j` shows it as
+`.initialTitle` on every Chrome window here. The page title only arrives later,
+as a `window.title` event. So
+`match = { class = "^(google-chrome)$", title = "^(Meet - .*)$" }, workspace = "2"`
+matched nothing, ever, and Meet windows stayed where they opened.
+
+The WINDOW RULES block of `hyprland.lua` therefore moves them from the
+`window.title` event instead (`hl.dispatch(hl.dsp.window.move{...})` with a
+`window = "address:…"` selector). Two things that has to get right:
+- **Both dash characters.** Google titles named meetings `Meet - <name>`
+  (U+002D) and meeting codes `Meet – <code>` (U+2013, en dash); Chrome's history
+  here holds both. The old regex only knew the hyphen.
+- **Require the dash directly after `Meet`**, or an ordinary page called
+  "Meet the team" lands on workspace 2 too.
+
+Each window is moved **at most once** (addresses in a table, cleared on
+`window.close`): a Meet title changes more than once early on, as the code
+resolves to the meeting name, and without the guard a window you deliberately
+dragged elsewhere would be yanked back.
+
+Same shape applies to any title-driven placement — match on **class**, which is
+final at map time, or move from the event.
+
 ### App Hotkeys (Super+A submap)
 Modelled on Omarchy 4's `bindings/applications.lua`, merged into the existing
 `Super+A` submap. Two scripts in `dotfiles/hypr/.local/share/bin/`:
@@ -661,6 +688,20 @@ the CLI persists the name into `settings.json` and returns success, but the
 running server keeps rendering the old palette. `vicinae server --replace`
 (plain `vicinae server` refuses when one is already running). Same restart
 requirement as new XDG desktop entries.
+
+**Extension shortcuts must avoid `Ctrl+H/J/K/L`.** `"keybinding": "default"`
+resolves to the **vim** navigation scheme on Linux — `KeyBindingService::getMode`
+only returns the "native" scheme on macOS — so those four are list
+down/up/left/right. An extension `Action` shortcut on one of them *wins* over
+navigation; in the google-calendar extension `Ctrl+J` joined the meeting instead
+of moving down the list. Note `modifiers: ["cmd"]` is Ctrl on Linux, so "cmd+j"
+**is** Ctrl+J. The scheme matches the modifier set exactly (`usesOnly`), so
+adding any modifier clears the conflict — Join Google Meet is now `Ctrl+Shift+J`.
+
+Own extensions live in `~/work/nd-vicinae-extensions/extensions/<name>`; `npx
+vici build` writes straight into `~/.local/share/vicinae/extensions/<name>`.
+`npx tsc --noEmit` reports pre-existing type errors there (`Icon.Globe`,
+`placeholder` props) that `vici build` does not treat as fatal.
 
 Rofi is still used for:
 - Window switcher (Super+Tab)
