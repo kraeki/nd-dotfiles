@@ -3,6 +3,7 @@
 
 let
   herdr = pkgs.callPackage ../../pkgs/herdr.nix { };
+  grok = pkgs.callPackage ../../pkgs/grok.nix { };
   tldraw-offline = pkgs.callPackage ../../pkgs/tldraw-offline.nix { };
 in
 {
@@ -91,6 +92,7 @@ in
     # Shell utilities
     tealdeer         # Fast tldr client (provides the `tldr` command)
     herdr            # Terminal agent-multiplexer (prebuilt, see pkgs/)
+    grok             # xAI's terminal coding agent (prebuilt, see pkgs/)
 
     # Screen annotation (Wayland/Hyprland, layer-shell) — upstream flake.
     # doCheck disabled: wayscriber runs its Rust test suite at build time, and a

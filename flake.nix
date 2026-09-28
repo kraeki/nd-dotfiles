@@ -29,6 +29,11 @@
       pkgs = import nixpkgs {
         inherit system;
         overlays = [ (import ./overlays/waybar.nix) ];
+        # Mirrors the `nixpkgs.config.allowUnfree` set on every host below.
+        # Needed by the `packages` output: grok is a proprietary binary that
+        # declares `license = unfree`, so `nix build .#grok` (and CI) would
+        # otherwise refuse it while `nixos-rebuild` was perfectly happy.
+        config.allowUnfree = true;
       };
     in {
     # The distro as a library: import these from your own flake, set
@@ -53,6 +58,7 @@
     packages.${system} = {
       waybar = pkgs.waybar;
       herdr = pkgs.callPackage ./pkgs/herdr.nix { };
+      grok = pkgs.callPackage ./pkgs/grok.nix { };
       tldraw-offline = pkgs.callPackage ./pkgs/tldraw-offline.nix { };
       wayscriber = inputs.wayscriber.packages.${system}.default.overrideAttrs (_: {
         doCheck = false;

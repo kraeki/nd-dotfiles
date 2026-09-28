@@ -595,6 +595,35 @@ it; every later one is a plain toggle.
   same session rather than starting a fresh one; closing the scratchpad window
   detaches, it does not kill the session.
 
+### grok (xAI's terminal coding agent)
+"Grok Build" / "Grok Bot" (x.ai/bot, x.ai/build) — xAI's answer to Claude Code,
+a TUI agent run as `grok` (`grok --help` for the flags; it also speaks ACP and
+runs headless). Packaged in `pkgs/grok.nix` and listed in
+`users/kraeki/home.nix`, same shape as herdr.
+
+- **It needs no `autoPatchelfHook`.** Unlike the herdr binary, the Grok one is
+  **static-pie linked** — `file` says so and there is no INTERP segment — so it
+  runs on NixOS untouched. Do not add patchelf on the assumption that a prebuilt
+  binary must need it; re-check `file` after a version bump instead.
+- Upstream's only install path is `curl -fsSL https://x.ai/cli/install.sh | bash`,
+  which drops a binary in `~/.grok/bin` and **self-updates in place** — exactly
+  what a NixOS box should not have. The derivation fetches the same artifact:
+  `https://x.ai/cli/grok-<version>-linux-x86_64.zst`. Bump `version` + `hash`
+  together (`nix store prefetch-file <url>`); current stable is the one-line
+  body of `https://x.ai/cli/stable`, and `alpha` / `enterprise` are the other
+  channels.
+- The `.zst` artifact is fetched rather than the plain one: ~50 MiB against
+  ~166 MiB, byte-identical after `zstd -d`.
+- **`grok update` cannot work** — the store path is read-only. Bump
+  `pkgs/grok.nix`. The `meta.description` says as much so the reason is visible
+  from `nix search`.
+- It is **unfree**, and `pkgs/grok.nix` declares it (herdr, equally proprietary,
+  declares no license and so slips through). That made the flake's `packages`
+  output refuse to build it, since `nixpkgs.config.allowUnfree` was set only on
+  the hosts — hence the matching `config.allowUnfree` on the flake-level `pkgs`.
+- Auth is `grok login` (writes `~/.grok/auth.json`) or a `GROK_DEPLOYMENT_KEY`
+  env var. Deliberately unmanaged: it is a credential, not config.
+
 ### Workspace Layouts
 `Super+M` runs `toggle-workspace-layout [toggle|dwindle|scrolling|status] [-q]`
 in `dotfiles/hypr/.local/share/bin/`.
