@@ -5,6 +5,16 @@ let
   herdr = pkgs.callPackage ../../pkgs/herdr.nix { };
   grok = pkgs.callPackage ../../pkgs/grok.nix { };
   tldraw-offline = pkgs.callPackage ../../pkgs/tldraw-offline.nix { };
+  # Claude Code off its own flake input (see the comment on `nixpkgs-claude`
+  # in flake.nix), so a new Claude is one `nix flake lock --update-input
+  # nixpkgs-claude` away instead of a whole-system nixpkgs bump.
+  # `import` rather than `.legacyPackages`: claude-code is unfree, and the
+  # hosts' `nixpkgs.config.allowUnfree` applies only to the system nixpkgs —
+  # an input evaluated here carries its own (default: off) config.
+  claudePkgs = import inputs.nixpkgs-claude {
+    inherit (pkgs.stdenv.hostPlatform) system;
+    config.allowUnfree = true;
+  };
 in
 {
   imports = [ ../../modules/home ];
@@ -46,7 +56,7 @@ in
     signal-desktop
     seahorse
     slack
-    claude-code
+    claudePkgs.claude-code   # fresher than the system pin, see the let above
     codex
     gemini-cli
 

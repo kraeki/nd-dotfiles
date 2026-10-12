@@ -624,6 +624,35 @@ runs headless). Packaged in `pkgs/grok.nix` and listed in
 - Auth is `grok login` (writes `~/.grok/auth.json`) or a `GROK_DEPLOYMENT_KEY`
   env var. Deliberately unmanaged: it is a credential, not config.
 
+### Claude Code (its own nixpkgs input)
+
+`claude-code` is the one package that does **not** come from the system
+nixpkgs pin. It ships several releases a week, and the pin is deliberately
+slow-moving, so `nix flake update nixpkgs` just to pick up a new Claude would
+drag Hyprland, the kernel and Mesa forward with it.
+
+- `flake.nix` carries a second input, `nixpkgs-claude.url =
+  "github:NixOS/nixpkgs/nixos-unstable"`, with **no `follows`** — following
+  the system pin would defeat the point. A new Claude is then
+  `nix flake lock --update-input nixpkgs-claude` plus a rebuild, and
+  `git diff flake.lock` shows exactly one node moving.
+- The cost is one extra nixpkgs eval. Nothing in the system is *rebuilt*
+  against it: claude-code is a prebuilt binary (`fetchurl` +
+  `autoPatchelfHook`, no stdenv closure shared with the rest of the system).
+- It is wired up in `users/kraeki/home.nix` — a `let` binding, not an
+  `overlays/` entry. claude-code has exactly one consumer, and
+  `home-manager.useGlobalPkgs = true` means an overlay would have to be
+  registered in each host's `nixpkgs.overlays` (home config cannot set it),
+  which is more plumbing for no gain.
+- **The binding `import`s the input rather than using `.legacyPackages`**,
+  because claude-code is `license = unfree`. The hosts'
+  `nixpkgs.config.allowUnfree` applies only to the *system* nixpkgs; an input
+  evaluated by hand carries its own config, which defaults to unfree off —
+  `.legacyPackages.x86_64-linux.claude-code` would refuse to evaluate. Same
+  class of problem as the flake-level `config.allowUnfree` that `grok` needed.
+- `codex` and `gemini-cli` still track the system pin. Move them here too if
+  they start feeling stale.
+
 ### Workspace Layouts
 `Super+M` runs `toggle-workspace-layout [toggle|dwindle|scrolling|status] [-q]`
 in `dotfiles/hypr/.local/share/bin/`.

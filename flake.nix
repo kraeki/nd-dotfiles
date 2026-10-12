@@ -21,6 +21,15 @@
     # first `nixos-rebuild` compiles ~1100 crates from source (~20-40 min, one
     # time — cached locally after). Bump this tag to pick up new Handy releases.
     handy.url = "github:cjpais/Handy/v0.9.4";
+    # Claude Code ships several releases a week, far faster than the rest of
+    # the system, so it tracks its own nixpkgs rather than the pin above —
+    # `nix flake update nixpkgs` to pick up a new Claude would drag the whole
+    # desktop (Hyprland, kernel, Mesa) forward with it. Bump this one alone:
+    #   nix flake lock --update-input nixpkgs-claude
+    # Deliberately NOT `follows` (that would defeat the point). The only cost
+    # is a second nixpkgs eval: claude-code is a prebuilt binary, so nothing
+    # in the system is rebuilt against this input.
+    nixpkgs-claude.url = "github:NixOS/nixpkgs/nixos-unstable";
   };
 
   outputs = { self, nixpkgs, home-manager, ... } @ inputs:
