@@ -12,3 +12,13 @@ result-*
 # Syncthing keeps its device identity (key.pem, https-key.pem) and an
 # <apikey> in config.xml here. Never commit it -- the key IS the device.
 dotfiles/syncthing/
+
+# Built ISOs copied out of the store for VM testing (`nix build .#iso` then
+# `cp result/iso/*.iso ndos.iso`). 1.4G each, and the store path is the real
+# artifact -- the `result` symlink above is already ignored.
+/*.iso
+
+# Claude Code's git worktrees: a full nested checkout (~150M), which git would
+# otherwise offer to commit into the repo it was branched from. Manage them
+# with `git worktree list` / `git worktree remove`, not with .gitignore.
+.claude/worktrees/
