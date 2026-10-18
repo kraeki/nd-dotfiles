@@ -11,11 +11,24 @@
 # and header byte actually on the wire.
 #
 # Usage: net-speedtest [down|up|both] [--seconds N] [--stream|--json|--notify]
+#        net-speedtest --history [--here] [--limit N]
 #
 #   both      (default) download phase then upload phase
-#   --stream  print live "down <mbps>" / "up <mbps>" lines, one per second
+#   --stream  print live "down <mbps>" / "up <mbps>" lines, one per second,
+#             then a final "result <down> <up>" line carrying the averages
 #   --json    print {"download":N,"upload":N} once finished
-#   --notify  post the result as a dunst notification (what waybar's click uses)
+#   --notify  post the result as a notification, sticky until dismissed
+#   --no-log  do not append this run to the history
+#   --history print past runs; --here limits them to the network you are on
+#
+# Every completed run is appended to
+# ${XDG_STATE_HOME:-~/.local/state}/net-speedtest/history.jsonl -- one JSON
+# object per line, carrying where you were (ssid, bssid, band, channel,
+# signal, bitrate, gateway) alongside the numbers. BSSID is the useful key:
+# an SSID can span a dozen APs and a dozen buildings, but a BSSID is one
+# radio in one place, so "slow here" is a question the log can actually
+# answer. JSONL rather than a single JSON array so appending never has to
+# read, parse and rewrite the whole file.
 #
 # Traps worth keeping in mind:
 #   - The first sample is always low: eight TCP connections are still in slow
@@ -35,6 +48,12 @@ output=human
 probe=1.1.1.1
 parallel=8
 url_count=3
+log=true
+history_limit=20
+history_here=false
+
+state_dir="${XDG_STATE_HOME:-$HOME/.local/state}/net-speedtest"
+history_file="$state_dir/history.jsonl"
 
 while (($#)); do
   case "$1" in
@@ -43,8 +62,12 @@ while (($#)); do
     --stream) output=stream ;;
     --json) output=json ;;
     --notify) output=notify ;;
+    --no-log) log=false ;;
+    --history) output=history ;;
+    --here) history_here=true ;;
+    --limit) history_limit=${2:?--limit needs a value}; shift ;;
     -h | --help)
-      sed -n '/^# Usage:/,/^#$/p' "$0" | sed 's/^# \{0,1\}//'
+      awk '/^# Usage:/ { on = 1 } on && !/^#/ { exit } on { sub(/^# ?/, ""); print }' "$0"
       exit 0
       ;;
     *) echo "net-speedtest: unknown argument '$1'" >&2; exit 2 ;;
@@ -55,6 +78,66 @@ done
 if [[ ! $seconds =~ ^[0-9]+$ ]] || ((seconds < 3)); then
   echo "net-speedtest: --seconds must be an integer >= 3 (the first sample is discarded as TCP slow start)" >&2
   exit 2
+fi
+
+# --- history ---------------------------------------------------------------
+# Reads newest-first so --limit is a tail without parsing the whole file into
+# a sorted array. Rows with a null download (an aborted run) are skipped.
+# NOTE: `set -euo pipefail` makes early pipe closure fatal, which bit twice
+# here and both times silently:
+#   - `net-status | awk '... { exit }'` -- awk leaves after the match, the
+#     write end gets SIGPIPE, pipefail promotes that to a failed pipeline and
+#     -e kills the script mid-function with no message at all. The awk below
+#     therefore reads to EOF and uses a seen-flag instead of `exit`.
+#   - `jq | head -n N` -- same shape, head closing on jq. The pipeline's
+#     output is captured into a variable with `|| true` rather than streamed,
+#     which also makes "nothing matched" a state this can report.
+render_history() {
+  local filter='.' rows here
+
+  if [[ $history_here == true ]]; then
+    here=$(net-status --verbose 2>/dev/null |
+      awk -F'\t' '$1 == "bssid" && !seen { print $2; seen = 1 }') || true
+    if [[ -z ${here:-} ]]; then
+      echo "net-speedtest: not on a Wi-Fi network, so there is no 'here' to filter by" >&2
+      return 1
+    fi
+    filter="select(.bssid == \"$here\")"
+  fi
+
+  if [[ ! -r $history_file ]]; then
+    echo "no speed tests logged yet ($history_file)" >&2
+    return 1
+  fi
+
+  rows=$(tac "$history_file" |
+    jq -rc "$filter | select(.download != null)" 2>/dev/null |
+    head -n "$history_limit") || true
+
+  if [[ -z ${rows:-} ]]; then
+    if [[ $history_here == true ]]; then
+      echo "no speed tests logged on this network yet" >&2
+    else
+      echo "no completed speed tests in the history yet" >&2
+    fi
+    return 1
+  fi
+
+  printf '%s\n' "$rows" |
+    jq -r '
+      def pad(n): tostring | (" " * (n - length) + .);
+      [ (.ts | sub("T"; " ") | sub("[+-][0-9]{2}:[0-9]{2}$"; "") | .[5:16]),
+        "  ↓" + ((.download // 0) | floor | pad(4)),
+        "  ↑" + ((.upload   // 0) | floor | pad(4)),
+        "   " + (.ssid // "?"),
+        (if .band then "  (" + .band + ")" else "" end),
+        (if .signal then "  " + (.signal | tostring) + "%" else "" end)
+      ] | add'
+}
+
+if [[ $output == history ]]; then
+  render_history
+  exit $?
 fi
 
 for cmd in ip curl jq awk dd pkill; do
@@ -174,8 +257,13 @@ conn_name() {
 # whole run (2 x --seconds plus the fast.com round trip), which reads as a
 # dead element.
 notify_id=9731
+# -u critical is what makes the result stay put: dunstrc gives normal urgency
+# timeout = 5 and only urgency_critical timeout = 0, so a plain notification
+# was gone five seconds after a test you waited ten seconds for. The
+# "measuring" one stays normal, since it is replaced by the result anyway.
 notify_at() {
-  notify-send -a net-speedtest -r "$notify_id" -i network-wireless "$1" "$2"
+  notify-send -a net-speedtest -r "$notify_id" -i network-wireless \
+    ${3:+-u "$3"} "$1" "$2"
 }
 
 name=""
@@ -195,8 +283,51 @@ if [[ $direction == up || $direction == both ]]; then
   upload=$result_mbps
 fi
 
+# --- log -------------------------------------------------------------------
+# net-status --verbose is tab-separated key/value lines; jq -R -s turns that
+# into an object so the record carries the whole context without this script
+# knowing which keys exist. Numeric fields are coerced where they are numbers,
+# because a history that stores "77" as a string cannot be compared or
+# averaged later.
+append_history() {
+  local meta record
+  mkdir -p "$state_dir" || return 0
+
+  meta=$(net-status --verbose 2>/dev/null |
+    jq -R -s 'split("\n") | map(select(length > 0) | split("\t"))
+              | map(select(length == 2) | {(.[0]): .[1]}) | add // {}
+              | with_entries(
+                  if (.key | IN("freq", "signal", "channel", "rx_bytes", "tx_bytes",
+                                "router_ping_ms", "internet_ping_ms", "speed"))
+                     and (.value | test("^[0-9]+(\\.[0-9]+)?$"))
+                  then .value |= tonumber else . end)')
+
+  record=$(jq -nc \
+    --argjson meta "${meta:-\{\}}" \
+    --arg ts "$(date -Iseconds)" \
+    --arg down "${download:-}" \
+    --arg up "${upload:-}" \
+    --argjson seconds "$seconds" \
+    '$meta + {
+       ts: $ts,
+       seconds: $seconds,
+       download: ($down | if . == "" then null else tonumber end),
+       upload:   ($up   | if . == "" then null else tonumber end)
+     }') || return 0
+
+  printf '%s\n' "$record" >>"$history_file"
+}
+
+[[ $log == true ]] && append_history
+
 case "$output" in
-  stream) ;;
+  stream)
+    # The per-second samples are raw; this last line is what the run actually
+    # measured (slow start dropped). A consumer drawing live gauges needs both
+    # -- the samples to animate, this to settle on -- and should not have to
+    # re-derive the average from lines it has already consumed.
+    printf 'result %s %s\n' "${download:-0}" "${upload:-0}"
+    ;;
   json)
     jq -nc --arg d "${download:-}" --arg u "${upload:-}" \
       '{download: ($d | if . == "" then null else tonumber end),
@@ -206,7 +337,7 @@ case "$output" in
     body=""
     [[ -n $download ]] && body="↓ ${download} Mbps"
     [[ -n $upload ]] && body="${body:+$body   }↑ ${upload} Mbps"
-    notify_at "Speed test${name:+ — $name}" "$body"
+    notify_at "Speed test${name:+ — $name}" "$body" critical
     printf '%s\n' "$body"
     ;;
   human)

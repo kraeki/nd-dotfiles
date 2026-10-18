@@ -106,7 +106,12 @@
     "rotate": 0,
     "interval": 3,
     "tooltip": true,
-    "on-click": "net-speedtest --notify",
+    // Left click opens the TUI (gauges + history, stays until dismissed);
+    // right click keeps the quick path that only posts a notification.
+    // launch-or-focus means a second click focuses the window rather than
+    // starting a second test against the same link.
+    "on-click": "launch-or-focus.sh '^net-speedtest$' kitty --class net-speedtest -e net-speedtest-ui",
+    "on-click-right": "net-speedtest --notify",
     "max-length": 1000
   },
 

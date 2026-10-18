@@ -434,7 +434,7 @@ end
 -- Omarchy keys this off its window tags; this config has none, so match on the
 -- class instead. "cliamp" and "herdr" are listed because both are kitty windows
 -- flying under their own class (Super+A submap Z, and the F3 scratchpad).
-local terminalClasses = { "kitty", "ghostty", "foot", "alacritty", "wezterm", "xterm", "cliamp", "herdr" }
+local terminalClasses = { "kitty", "ghostty", "foot", "alacritty", "wezterm", "xterm", "cliamp", "herdr", "net-speedtest" }
 
 local function activeWindowIsTerminal()
     local ok, window = pcall(hl.get_active_window)
@@ -839,6 +839,13 @@ hl.window_rule({ name = "windowrule-2", match = { class = "^(obsidian)$" }, work
 -- trick as cliamp) -- that is what lets toggle-herdr find it and what pins it
 -- to its scratchpad.
 hl.window_rule({ name = "windowrule-herdr", match = { class = "^(herdr)$" }, workspace = "special:herdr" })
+
+-- The speed test TUI (net-speedtest-ui), launched from the bar's network
+-- element. Another kitty under its own class, floated and centred because it
+-- is a read-and-dismiss panel, not a window to tile work around -- the
+-- closest this config gets to Omarchy's Quickshell overlay.
+hl.window_rule({ name = "windowrule-speedtest", match = { class = "^(net-speedtest)$" },
+                 float = true, size = { 760, 420 }, center = true })
 
 -- Google Meet always on workspace 2.
 --

@@ -1,0 +1,208 @@
+#!/usr/bin/env bash
+
+# The speed test with a face: live gauges while it runs, then every previous
+# run on this network underneath it.
+#
+# This is the local answer to Omarchy 4's SpeedTestOverlay.qml (412 lines of
+# QtQuick.Shapes arc dials). That needs Quickshell, which would be a whole UI
+# toolkit added to this config for one overlay; a kitty window under its own
+# class is the pattern this repo already uses for cliamp and herdr, and it
+# gets the history table for free because it is a terminal.
+#
+# Usage: net-speedtest-ui [--seconds N]
+#
+# Meant to be launched by the bar's network element, which runs it through
+# launch-or-focus.sh so a second click focuses this window instead of opening
+# another. Run it bare in a terminal and it just works there too.
+
+set -uo pipefail
+
+seconds=5
+while (($#)); do
+  case "$1" in
+    --seconds) seconds=${2:?--seconds needs a value}; shift ;;
+    -h | --help) sed -n '/^# Usage:/,/^$/p' "$0" | sed 's/^# \{0,1\}//'; exit 0 ;;
+    *) echo "net-speedtest-ui: unknown argument '$1'" >&2; exit 2 ;;
+  esac
+  shift
+done
+
+# Catppuccin Mocha, teal accent with peach as the secondary -- the same pair
+# as branding/logo.txt, so download/upload read as "ours" rather than as
+# traffic lights.
+teal=$'\033[38;2;148;226;213m'
+peach=$'\033[38;2;250;179;135m'
+dim=$'\033[38;2;108;112;134m'
+fg=$'\033[38;2;205;214;244m'
+reset=$'\033[0m'
+
+cleanup() { printf '\033[?25h\033[?1049l'; stty echo 2>/dev/null || true; }
+trap cleanup EXIT INT TERM
+
+ROW_HEAD=2
+ROW_DOWN=4
+ROW_UP=5
+ROW_HIST=7
+
+at() { printf '\033[%d;1H\033[2K' "$1"; }
+
+header=""
+read_header() {
+  local kind name signal band rate
+  IFS=$'\t' read -r kind name signal _ < <(net-status 2>/dev/null) || true
+
+  # --verbose is the only source of band and bitrate; the short form has
+  # neither. A seen-flag rather than awk's `exit` so the writer never takes
+  # SIGPIPE (see the same note in net-speedtest).
+  while IFS=$'\t' read -r key value; do
+    case "$key" in
+      band) band=$value ;;
+      bitrate) rate=$value ;;
+    esac
+  done < <(net-status --verbose 2>/dev/null) || true
+
+  case "${kind:-}" in
+    wifi) header="${name:-Wi-Fi}" ;;
+    ethernet) header="Ethernet" ;;
+    *) header="Offline" ;;
+  esac
+  [[ -n ${band:-} ]] && header="$header  ${dim}•${fg}  $band"
+  [[ -n ${rate:-} ]] && header="$header  ${dim}•${fg}  $rate"
+  [[ -n ${signal:-} ]] && header="$header  ${dim}•${fg}  ${signal}%"
+}
+
+# Rounds a ceiling up to something a human reads as a round number, so the
+# gauge's full width means the same thing between runs.
+nice_scale() {
+  awk -v v="${1:-100}" 'BEGIN {
+    split("50 100 250 500 1000 2500 5000", steps, " ")
+    for (i = 1; i <= 7; i++) if (v <= steps[i]) { print steps[i]; exit }
+    print 10000
+  }'
+}
+
+best_here=0
+read_best_here() {
+  local rows
+  rows=$(net-speedtest --history --here --limit 50 2>/dev/null) || true
+  [[ -z $rows ]] && return
+  best_here=$(awk '{ for (i = 1; i <= NF; i++) {
+      if ($i ~ /^↓/) { gsub(/↓/, "", $i); if ($i + 0 > m) m = $i + 0 }
+      if ($i ~ /^↑/) { gsub(/↑/, "", $i); if ($i + 0 > m) m = $i + 0 }
+    } } END { printf "%d", m }' <<<"$rows")
+}
+
+scale=100
+width=0
+compute_width() {
+  local cols=${COLUMNS:-0}
+  ((cols == 0)) && cols=$(tput cols 2>/dev/null || echo 80)
+  width=$((cols - 32))
+  ((width < 10)) && width=10
+  ((width > 48)) && width=48
+}
+
+# One gauge row: label, bar, value.
+#
+# The number is formatted by awk and printed with %s, never with bash's
+# printf %f. This machine's locale is comma-decimal (de_CH), where
+# `printf '%6.1f' 277.1` fails outright with "invalid number" -- the gauge
+# rows vanished behind those errors. gawk writes a period regardless of
+# locale, so doing the formatting there removes the dependency instead of
+# papering over it with LC_NUMERIC (which LC_ALL would override anyway).
+draw_gauge() {
+  local row=$1 label=$2 color=$3 value=$4 live=$5
+  local filled shown bar=""
+
+  IFS=' ' read -r filled shown < <(awk -v v="$value" -v s="$scale" -v w="$width" 'BEGIN {
+    f = int((v / s) * w + 0.5)
+    if (f < 0) f = 0
+    if (f > w) f = w
+    printf "%d %.1f\n", f, v
+  }')
+
+  local i
+  for ((i = 0; i < filled; i++)); do bar+="█"; done
+  at "$row"
+  printf '  %s%-9s%s %s%s%s%s%*s%s  %s%7s%s %sMbps%s%s' \
+    "$fg" "$label" "$reset" \
+    "$color" "$bar" "$reset" "$dim" "$((width - filled))" "" "$reset" \
+    "$color" "$shown" "$reset" "$dim" "$reset" \
+    "$([[ $live == live ]] && printf ' %s●%s' "$color" "$reset")"
+}
+
+draw_history() {
+  local rows line row=$ROW_HIST
+  at "$row"; printf '  %shere before%s' "$dim" "$reset"
+  rows=$(net-speedtest --history --here --limit 8 2>/dev/null) || true
+  row=$((row + 1))
+  if [[ -z $rows ]]; then
+    at "$row"; printf '  %sno previous runs on this network%s' "$dim" "$reset"
+    return
+  fi
+  while IFS= read -r line; do
+    at "$row"; printf '  %s%s%s' "$dim" "$line" "$reset"
+    row=$((row + 1))
+  done <<<"$rows"
+}
+
+run_once() {
+  local phase value extra down=0 up=0 peak=0
+
+  read_header
+  read_best_here
+  compute_width
+  scale=$(nice_scale $((best_here > 0 ? best_here : 100)))
+
+  printf '\033[2J'
+  at "$ROW_HEAD"; printf '  %s%s%s' "$fg" "$header" "$reset"
+  draw_gauge "$ROW_DOWN" DOWNLOAD "$teal" 0 live
+  draw_gauge "$ROW_UP" UPLOAD "$peach" 0 ""
+  draw_history
+  at $((ROW_HIST + 10)); printf '  %smeasuring…%s' "$dim" "$reset"
+
+  # Live samples. A sample above the current ceiling grows the scale and
+  # redraws both gauges, so a fast link is never pinned at full width.
+  while read -r phase value extra; do
+    case "$phase" in
+      down) down=$value ;;
+      up) up=$value ;;
+      result)
+        # "result <down> <up>" -- the averages, with slow start dropped. $value
+        # holds the download; read the upload off the rest of the line.
+        down=$value
+        up=$extra
+        draw_gauge "$ROW_DOWN" DOWNLOAD "$teal" "$down" ""
+        draw_gauge "$ROW_UP" UPLOAD "$peach" "$up" ""
+        continue
+        ;;
+      *) continue ;;
+    esac
+    awk -v v="$value" -v p="$peak" 'BEGIN { exit !(v > p) }' && peak=$value
+    if awk -v p="$peak" -v s="$scale" 'BEGIN { exit !(p > s) }'; then
+      scale=$(nice_scale "$peak")
+    fi
+    draw_gauge "$ROW_DOWN" DOWNLOAD "$teal" "$down" "$([[ $phase == down ]] && echo live)"
+    draw_gauge "$ROW_UP" UPLOAD "$peach" "$up" "$([[ $phase == up ]] && echo live)"
+  done < <(net-speedtest both --seconds "$seconds" --stream 2>/dev/null)
+
+  # Gauges already hold the averages from the "result" line; only the history
+  # needs redrawing, since the run just appended itself to it.
+  draw_history
+  at $((ROW_HIST + 10))
+  printf '  %sq%s quit   %sr%s run again' "$fg" "$dim" "$fg" "$dim"
+  printf '%s' "$reset"
+}
+
+printf '\033[?1049h\033[?25l'
+while true; do
+  run_once
+  # -n1 so a single keypress acts; the read is the only thing keeping the
+  # window open, which is what makes the result stay put.
+  IFS= read -rsn1 key || break
+  case "$key" in
+    q | Q) break ;;
+    r | R) continue ;;
+    *) continue ;;
+  esac
+done

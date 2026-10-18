@@ -49,18 +49,6 @@ fmt_rate() {
   }'
 }
 
-# Ported from omarchy-network-band's band_for_freq. Accepts nmcli's
-# "2412 MHz" and iw's "5745.0" alike by keeping only the leading digits.
-band_for_freq() {
-  local mhz=${1%%[!0-9]*}
-  [[ -n $mhz ]] || return 1
-  if ((mhz >= 2400 && mhz < 2500)); then echo "2.4 GHz"
-  elif ((mhz >= 4900 && mhz < 5925)); then echo "5 GHz"
-  elif ((mhz >= 5925 && mhz < 7125)); then echo "6 GHz"
-  else return 1
-  fi
-}
-
 IFS=$'\t' read -r kind name signal freq < <("$self" 2>/dev/null)
 kind=${kind:-disconnected}
 
@@ -108,7 +96,7 @@ case "$kind" in
     class=wifi
 
     head="$(pango "$name")"
-    band=$(band_for_freq "${v[freq]:-$freq}" 2>/dev/null) && head="$head  •  $band"
+    [[ -n ${v[band]:-} ]] && head="$head  •  ${v[band]}"
     [[ -n ${v[signal_dbm]:-} ]] && head="$head  •  ${v[signal_dbm]} dBm"
     [[ -n ${signal:-} ]] && head="$head  •  ${signal}%"
     [[ -n ${v[bitrate]:-} && ${v[bitrate]} != " " ]] && head="$head  •  $(pango "${v[bitrate]}")"
@@ -137,8 +125,38 @@ ${v[ip]:-?}${v[prefix]:+/${v[prefix]}} via ${v[gateway]:-?}  ($(pango "$iface"))
   [[ -n $pings ]] && tooltip="$tooltip
 $pings"
   tooltip="$tooltip
-↓ $(human_bytes "$rx")   ↑ $(human_bytes "$tx")  since link up
-Click to run a speed test"
+↓ $(human_bytes "$rx")   ↑ $(human_bytes "$tx")  since link up"
+
+  # Past speed tests on THIS access point, keyed by BSSID -- the point of the
+  # history being logged at all. jq slurps the file rather than piping into
+  # head: `jq | head -n1` hands jq a SIGPIPE, and the pipeline is inside a
+  # script where that reads as failure (see the note in net-speedtest).
+  history_file="${XDG_STATE_HOME:-$HOME/.local/state}/net-speedtest/history.jsonl"
+  if [[ -r $history_file && -n ${v[bssid]:-} ]]; then
+    summary=$(tac "$history_file" 2>/dev/null |
+      jq -sr --arg b "${v[bssid]}" '
+        [.[] | select(.bssid == $b and .download != null)] as $rows
+        | if ($rows | length) == 0 then empty
+          else
+            $rows[0] as $last
+            | [ ($last.ts | sub("T"; " ") | .[5:16]),
+                ($last.download | floor), ($last.upload // 0 | floor),
+                ([$rows[].download] | max | floor),
+                ([$rows[].upload // 0] | max | floor),
+                ($rows | length) ] | @tsv
+          end' 2>/dev/null) || true
+
+    if [[ -n ${summary:-} ]]; then
+      IFS=$'\t' read -r h_when h_down h_up h_bd h_bu h_n <<<"$summary"
+      tooltip="$tooltip
+
+last test  ↓${h_down} ↑${h_up}   ($h_when)
+best here  ↓${h_bd} ↑${h_bu}   (of $h_n)"
+    fi
+  fi
+
+  tooltip="$tooltip
+Click for the speed test, right-click to just measure"
 fi
 
 jq -nc --arg text "$text" --arg tooltip "$tooltip" --arg class "$class" \

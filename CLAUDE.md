@@ -700,16 +700,102 @@ window — a longer one smears bursts out.
 **Everything reaching waybar is pango-escaped.** waybar parses module text as
 markup, so a guest network called `Bar & Grill` would blank the module.
 
-**`iw` is required for the radio detail** and is in
-`modules/nixos/networking.nix` for exactly this. nmcli reports SIGNAL as a
-0-100% estimate and knows nothing else, so without `iw` the tooltip loses
-dBm, frequency (hence the 2.4/5/6 GHz band) and the negotiated tx bitrate —
-the scripts degrade to the percentage rather than failing. The band
-boundaries in `net-waybar` are ported from `omarchy-network-band`.
+**`iw` buys exactly one field, not the whole radio detail.**
+`nmcli -t -f ACTIVE,FREQ,RATE,SIGNAL,CHAN,BSSID dev wifi list` already carries
+frequency (hence the band), negotiated bitrate, channel and BSSID for the
+in-use AP, so `net-status` takes all of those from nmcli. Only **signal in
+dBm** is iw-exclusive — nmcli reports SIGNAL as a 0-100% estimate with no dBm
+anywhere — which is why `pkgs.iw` is in `modules/nixos/networking.nix` but its
+absence costs one line of tooltip rather than the band and bitrate. (An
+earlier version of this file claimed nmcli "knows nothing else"; it was wrong,
+and the tooltip showed no band as a result.)
+
+**nmcli `-t` escapes `:` inside values**, which is unavoidable for a BSSID's
+six colon-separated octets. `net-status` therefore requests BSSID **last** so
+everything past field 5 can be rejoined and unescaped, and never asks this
+call for the SSID — an SSID containing `:` would be indistinguishable from a
+separator. `band_for_freq` (ported from `omarchy-network-band`) lives in
+`net-status` alone, so the bar, the TUI and the history cannot disagree about
+which band a frequency is.
 
 The bar icon encodes signal strength via the five Nerd Font wifi glyphs, so
 there is no separate bar meter in the text. Only `class=disconnected` is
 coloured: an element that shouts on every poll stops being glanceable.
+
+#### History: where you were, not just how fast
+
+Every completed run appends one JSON object to
+`${XDG_STATE_HOME:-~/.local/state}/net-speedtest/history.jsonl`, carrying the
+whole context `net-status --verbose` knows — ssid, **bssid**, band, channel,
+signal, bitrate, gateway, both pings — beside the numbers. `--no-log` opts out.
+
+**BSSID is the key that makes this useful.** An SSID can span a dozen APs in a
+dozen buildings; a BSSID is one radio in one place, so "is it slow *here*" is a
+question the log can actually answer. `net-speedtest --history [--here]
+[--limit N]` prints it, `--here` filtering to the AP you are on, and the bar
+tooltip folds in last-and-best for that AP so the numbers outlive the
+notification. JSONL rather than one JSON array so appending never reads,
+parses and rewrites the file.
+
+The result notification is `-u critical`, which is what makes it **stick**:
+`dunstrc` gives normal urgency `timeout = 5` and only `urgency_critical`
+`timeout = 0`, so a result you waited ten seconds for used to vanish in five.
+
+#### net-speedtest-ui (the kitty TUI)
+
+Left-clicking the bar element opens `net-speedtest-ui` — live gauges while the
+test runs, then the previous runs on this AP underneath. Right-click keeps the
+quick measure-and-notify path. It is `kitty --class net-speedtest -e
+net-speedtest-ui` through `launch-or-focus.sh` (the cliamp/herdr pattern), so a
+second click focuses the window instead of starting a second test against the
+same link; a window rule floats and centres it, and the class is in
+`terminalClasses` for universal copy/paste.
+
+This stands in for Omarchy's `shell/Ui/SpeedTestOverlay.qml` — 412 lines of
+`QtQuick.Shapes` arc dials. Porting that standalone is feasible (`quickshell`
+is in nixpkgs; strip `qs.Commons` I18n and `qs.Ui` Style to constants) but it
+means a whole UI toolkit for one overlay, and a terminal gets the history
+table for free.
+
+**`--stream` emits a final `result <down> <up>` line.** The per-second samples
+are raw; the logged figure is the average with slow start dropped. A consumer
+drawing live gauges needs both and should not have to re-derive the average
+from lines it already consumed.
+
+**Numbers in the TUI are formatted by awk, never by bash `printf %f`.** This
+machine's locale is comma-decimal (de_CH), where `printf '%6.1f' 277.1` fails
+outright with `invalid number` — the gauge rows disappeared behind those
+errors. gawk writes a period regardless of locale, so formatting there removes
+the dependency rather than papering over it with `LC_NUMERIC` (which a set
+`LC_ALL` would override anyway).
+
+#### Two traps that cost real debugging time here
+
+**`set -euo pipefail` makes early pipe closure fatal, and silently.**
+`net-status | awk '... { exit }'` — awk leaves after the match, the writer
+takes SIGPIPE, `pipefail` promotes that to a failed pipeline and `-e` kills the
+script mid-function with **no message at all**. That is why `--history --here`
+printed nothing while the identical pipeline worked when pasted into a shell.
+Both occurrences are fixed by reading to EOF with a seen-flag instead of
+`exit`, and by capturing `jq | head -n` into a variable with `|| true` rather
+than streaming it. Watch for this shape in any new script here.
+
+**`pkill -x waybar` can never match on NixOS.** nixpkgs wraps waybar with
+`makeBinaryWrapper`, which moves the real binary to `bin/.waybar-wrapped` and
+leaves a *compiled* wrapper as `bin/waybar` — so the running process's `comm`
+is `.waybar-wrapped`, `pgrep -x waybar` finds nothing, and `pkill -x waybar`
+**exits 1 while looking like it worked**. A `pkill -USR2 -x waybar` "reload"
+therefore does nothing at all, and following it with a fresh `waybar` leaves
+two bars stacked. Reload with `pkill -USR2 -f waybar`, or kill the pid from
+`pgrep -a waybar` (no `-x`).
+
+Note the wrapper is a **binary**, not a shell script, so `file` says ELF and a
+`#!` test does not detect it. The reliable check is whether
+`bin/.<name>-wrapped` exists next to the binary. Of what this config drives:
+**waybar, dunst, kitty and vicinae are wrapped**; **rofi, slurp, hyprpicker and
+wpaperd are not** — which is why the existing `pkill -x rofi` on `Super+Tab`
+and `pkill -x slurp` in `capture-region.sh` are correct and must not be
+"fixed".
 
 **Why the whole Quickshell shell was not adopted.** Omarchy 4 "Quattro"
 replaced waybar, walker, mako, swayosd, hyprlock, hypridle, swaybg and
@@ -1024,9 +1110,10 @@ The home printer is a **Brother DCP-9015CDW** colour laser MFP.
 - **Super+Print**: Color picker (hyprpicker)
 - **Super+Ctrl+Print**: Extract text from a region (OCR)
 - **Super+Shift+Print**: Decode a QR code from a region
-- **Click the bar's network element**: Run a fast.com speed test (down then
-  up, ~5s each); the result arrives as a notification. Hover it for SSID,
-  band, signal, bitrate, IP/gateway, router and internet ping, and totals.
+- **Click the bar's network element**: Open the speed test TUI — live gauges,
+  then every previous run on this access point. **Right-click** just measures
+  and posts a sticky notification. Hover for SSID, band, signal, bitrate,
+  IP/gateway, router and internet ping, totals, and last/best here.
 - **Super+M**: Toggle the active workspace between dwindle and scrolling layout
 - **Super+= / Super+-** (Shift optional, so `+` / `-` work): Step the focused
   monitor's scale up / down (`step-monitor-scale`)

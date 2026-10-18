@@ -8,17 +8,26 @@
 #   (no args)   one line: <kind>\t<name>\t<signal%>\t<freq MHz>
 #               kind is wifi | ethernet | disconnected
 #   --verbose   key\tvalue lines: iface, ip, prefix, gateway, rx_bytes,
-#               tx_bytes, type, and per-type extras (ssid/signal_dbm/freq/
-#               bitrate for Wi-Fi; speed/duplex for Ethernet), then
-#               router_ping_ms and internet_ping_ms
+#               tx_bytes, type, then per-type extras -- for Wi-Fi: freq,
+#               band, bitrate, signal, channel, bssid, ssid and (only with
+#               iw installed) signal_dbm; for Ethernet: speed, duplex --
+#               and finally router_ping_ms and internet_ping_ms
 #
 # "Which interface" is answered by `ip route get 1.1.1.1` rather than by
 # picking the first UP device: with a dock, a VPN and docker0 all present,
 # the only interface that matters is the one carrying the default route.
 #
-# `iw` supplies signal_dbm, freq and bitrate. It degrades to empty rather
-# than failing when iw is absent, but the Wi-Fi detail is then blank --
-# nmcli's SIGNAL is a 0-100% estimate, not dBm, and knows no bitrate.
+# Where the Wi-Fi detail comes from: `nmcli dev wifi list` already carries
+# BSSID, FREQ, RATE and CHAN for the in-use AP, so none of those need `iw`.
+# Only **signal_dbm** is iw-exclusive -- nmcli reports SIGNAL as a 0-100%
+# estimate with no dBm anywhere -- so iw is queried for that alone and its
+# absence costs exactly one field.
+#
+# nmcli -t escapes ':' inside values as '\:', which is unavoidable here
+# because a BSSID is six colon-separated octets. BSSID is therefore requested
+# LAST so everything after field 5 can be rejoined and unescaped; SSID is
+# never requested from this call at all, since an SSID containing ':' would
+# be indistinguishable from a field separator.
 
 set -uo pipefail
 
@@ -29,7 +38,7 @@ case "${1:-}" in
   "") ;;
   --verbose) verbose=true ;;
   -h | --help)
-    sed -n '/^# Usage:/,/^#$/p' "$0" | sed 's/^# \{0,1\}//'
+    awk '/^# Usage:/ { on = 1 } on && !/^#/ { exit } on { sub(/^# ?/, ""); print }' "$0"
     exit 0
     ;;
   *) echo "Usage: net-status [--verbose]" >&2; exit 2 ;;
@@ -41,6 +50,20 @@ route_device() {
 }
 
 is_wireless() { [[ -d /sys/class/net/$1/wireless ]]; }
+
+# Ported from omarchy-network-band's band_for_freq. Accepts nmcli's
+# "2412 MHz" and iw's "5745.0" alike by keeping only the leading digits.
+# Lives here rather than in each consumer so the bar, the TUI and the history
+# log cannot disagree about which band a frequency is.
+band_for_freq() {
+  local mhz=${1%%[!0-9]*}
+  [[ -n $mhz ]] || return 1
+  if ((mhz >= 2400 && mhz < 2500)); then echo "2.4 GHz"
+  elif ((mhz >= 4900 && mhz < 5925)); then echo "5 GHz"
+  elif ((mhz >= 5925 && mhz < 7125)); then echo "6 GHz"
+  else return 1
+  fi
+}
 
 print_status() {
   local device nm state ssid signal freq
@@ -105,7 +128,8 @@ print_ping_samples() {
 }
 
 print_verbose() {
-  local route_json iface gw src prefix link
+  local route_json iface gw src prefix link active_ap
+  local ap_freq ap_rate ap_signal ap_chan ap_bssid band
 
   route_json=$(ip -j route get "$probe" 2>/dev/null)
   [[ -z $route_json ]] && return
@@ -130,16 +154,42 @@ print_verbose() {
 
   if is_wireless "$iface"; then
     printf 'type\twifi\n'
+
+    # Fields: 1 ACTIVE, 2 FREQ, 3 RATE, 4 SIGNAL, 5 CHAN, 6.. BSSID.
+    active_ap=$(LC_ALL=C nmcli -t -f ACTIVE,FREQ,RATE,SIGNAL,CHAN,BSSID \
+      dev wifi list ifname "$iface" --rescan no 2>/dev/null |
+      awk -F: '$1 == "yes" {
+        bssid = $6
+        for (i = 7; i <= NF; i++) bssid = bssid ":" $i
+        gsub(/\\/, "", bssid)
+        printf "%s\t%s\t%s\t%s\t%s\n", $2, $3, $4, $5, bssid
+        exit
+      }')
+
+    if [[ -n $active_ap ]]; then
+      IFS=$'\t' read -r ap_freq ap_rate ap_signal ap_chan ap_bssid <<<"$active_ap"
+      if [[ -n ${ap_freq:-} ]]; then
+        printf 'freq\t%s\n' "${ap_freq% MHz}"
+        band=$(band_for_freq "$ap_freq") && printf 'band\t%s\n' "$band"
+      fi
+      [[ -n ${ap_rate:-} ]] && printf 'bitrate\t%s\n' "$ap_rate"
+      [[ -n ${ap_signal:-} ]] && printf 'signal\t%s\n' "$ap_signal"
+      [[ -n ${ap_chan:-} ]] && printf 'channel\t%s\n' "$ap_chan"
+      [[ -n ${ap_bssid:-} ]] && printf 'bssid\t%s\n' "$ap_bssid"
+    fi
+
+    # The SSID, and the only field that needs iw: signal in dBm.
     if command -v iw >/dev/null; then
       link=$(iw dev "$iface" link 2>/dev/null)
       if [[ -n $link ]]; then
         printf 'ssid\t%s\n' "$(awk '/SSID:/ { sub(/.*SSID: /, ""); print; exit }' <<<"$link")"
         printf 'signal_dbm\t%s\n' "$(awk '/signal:/ { print $2; exit }' <<<"$link")"
-        printf 'freq\t%s\n' "$(awk '/freq:/ { print $2; exit }' <<<"$link")"
-        printf 'bitrate\t%s %s\n' \
-          "$(awk '/tx bitrate:/ { print $3; exit }' <<<"$link")" \
-          "$(awk '/tx bitrate:/ { print $4; exit }' <<<"$link")"
       fi
+    else
+      # Falls back to the connection profile name. Usually the SSID, but a
+      # renamed profile would differ -- hence the preference for iw's.
+      printf 'ssid\t%s\n' "$(LC_ALL=C nmcli -t -f GENERAL.CONNECTION dev show "$iface" 2>/dev/null |
+        awk -F: '{ print $2; exit }')"
     fi
   else
     printf 'type\tethernet\n'
