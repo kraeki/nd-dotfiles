@@ -46,5 +46,12 @@
     };
 
     services.teamviewer.enable = true;
+
+    # iw: the only source of radio detail on a Wi-Fi link -- signal in dBm,
+    # frequency (hence the 2.4/5/6 GHz band) and negotiated tx bitrate. nmcli
+    # reports SIGNAL as a 0-100% estimate and knows none of the rest, so the
+    # bar's network element (net-waybar / net-status) degrades to just the
+    # percentage without this.
+    environment.systemPackages = [ pkgs.iw ];
   };
 }

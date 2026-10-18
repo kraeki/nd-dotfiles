@@ -1,0 +1,145 @@
+#!/usr/bin/env bash
+
+# waybar's network element: Wi-Fi state in the bar, live throughput, and the
+# speed test on click. Ported from Omarchy 4's `omarchy.network` bar widget
+# plus its speedtest panel -- both of which are Quickshell QML upstream, so
+# only the ideas and the shell helpers behind them came across.
+#
+# Prints waybar JSON (text/tooltip/class) and expects
+#   "return-type": "json", "interval": 3
+#
+# Throughput is a delta between invocations, so it needs state: waybar runs
+# this as a fresh process every interval and nothing survives in between.
+# $XDG_RUNTIME_DIR is the right home for that -- tmpfs, per-session, gone on
+# logout, so a stale counter can never outlive the link it described.
+#
+# Everything that reaches waybar is pango-escaped. An SSID is attacker-ish
+# input in the sense that matters here: a guest network called "Bar & Grill"
+# would otherwise blank the module, since waybar parses the string as markup.
+
+set -uo pipefail
+
+self=$(command -v net-status || echo "$(dirname "$0")/net-status")
+state_file="${XDG_RUNTIME_DIR:-/tmp}/net-waybar.state"
+
+# Nerd Font wifi glyphs, weakest to strongest. The icon carries signal
+# strength, which is why there is no separate bar meter in the text.
+icons=("󰤯" "󰤟" "󰤢" "󰤥" "󰤨")
+icon_ethernet="󰈀"
+icon_offline="󰤭"
+
+pango() { printf '%s' "${1//&/\&amp;}" | sed 's/</\&lt;/g; s/>/\&gt;/g'; }
+
+human_bytes() {
+  awk -v b="${1:-0}" 'BEGIN {
+    split("B KB MB GB TB", u, " ")
+    i = 1
+    while (b >= 1024 && i < 5) { b /= 1024; i++ }
+    printf (i == 1 ? "%d %s" : "%.1f %s"), b, u[i]
+  }'
+}
+
+# Mbit/s for the bar: integers once past 100 so the module stops changing
+# width on every poll.
+fmt_rate() {
+  awk -v v="${1:-0}" 'BEGIN {
+    if (v >= 100) printf "%d", v
+    else if (v >= 10) printf "%.0f", v
+    else printf "%.1f", v
+  }'
+}
+
+# Ported from omarchy-network-band's band_for_freq. Accepts nmcli's
+# "2412 MHz" and iw's "5745.0" alike by keeping only the leading digits.
+band_for_freq() {
+  local mhz=${1%%[!0-9]*}
+  [[ -n $mhz ]] || return 1
+  if ((mhz >= 2400 && mhz < 2500)); then echo "2.4 GHz"
+  elif ((mhz >= 4900 && mhz < 5925)); then echo "5 GHz"
+  elif ((mhz >= 5925 && mhz < 7125)); then echo "6 GHz"
+  else return 1
+  fi
+}
+
+IFS=$'\t' read -r kind name signal freq < <("$self" 2>/dev/null)
+kind=${kind:-disconnected}
+
+declare -A v=()
+while IFS=$'\t' read -r key value; do
+  [[ -n ${key:-} ]] && v[$key]=$value
+done < <("$self" --verbose 2>/dev/null)
+
+iface=${v[iface]:-}
+
+# --- throughput ------------------------------------------------------------
+# A changed interface, a counter that went backwards (the link bounced and
+# /sys reset), or no previous sample at all all mean "no rate yet" rather
+# than a bogus spike.
+down_rate=0
+up_rate=0
+now=${EPOCHREALTIME/,/.}
+rx=${v[rx_bytes]:-0}
+tx=${v[tx_bytes]:-0}
+
+if [[ -n $iface && -r $state_file ]]; then
+  read -r p_time p_iface p_rx p_tx <"$state_file" 2>/dev/null || true
+  if [[ ${p_iface:-} == "$iface" ]]; then
+    read -r down_rate up_rate < <(awk -v t0="${p_time:-0}" -v t1="$now" \
+      -v r0="${p_rx:-0}" -v r1="$rx" -v x0="${p_tx:-0}" -v x1="$tx" 'BEGIN {
+        dt = t1 - t0
+        if (dt <= 0 || dt > 60 || r1 < r0 || x1 < x0) { print 0, 0; exit }
+        printf "%.3f %.3f", (r1 - r0) * 8 / 1000000 / dt, (x1 - x0) * 8 / 1000000 / dt
+      }')
+  fi
+fi
+[[ -n $iface ]] && printf '%s %s %s %s\n' "$now" "$iface" "$rx" "$tx" >"$state_file"
+
+rates="↓$(fmt_rate "$down_rate") ↑$(fmt_rate "$up_rate")"
+
+# --- text and tooltip ------------------------------------------------------
+case "$kind" in
+  wifi)
+    level=0
+    if [[ ${signal:-} =~ ^[0-9]+$ ]]; then
+      level=$((signal / 21))
+      ((level > 4)) && level=4
+    fi
+    text="${icons[$level]} $(pango "$name") $rates"
+    class=wifi
+
+    head="$(pango "$name")"
+    band=$(band_for_freq "${v[freq]:-$freq}" 2>/dev/null) && head="$head  •  $band"
+    [[ -n ${v[signal_dbm]:-} ]] && head="$head  •  ${v[signal_dbm]} dBm"
+    [[ -n ${signal:-} ]] && head="$head  •  ${signal}%"
+    [[ -n ${v[bitrate]:-} && ${v[bitrate]} != " " ]] && head="$head  •  $(pango "${v[bitrate]}")"
+    ;;
+  ethernet)
+    text="$icon_ethernet $rates"
+    class=ethernet
+    head="Ethernet — $(pango "$name")"
+    [[ -n ${v[speed]:-} ]] && head="$head  •  ${v[speed]} Mbit/s"
+    [[ -n ${v[duplex]:-} ]] && head="$head  •  ${v[duplex]} duplex"
+    ;;
+  *)
+    text="$icon_offline"
+    class=disconnected
+    head="Offline"
+    ;;
+esac
+
+tooltip="$head"
+if [[ -n $iface ]]; then
+  tooltip="$tooltip
+${v[ip]:-?}${v[prefix]:+/${v[prefix]}} via ${v[gateway]:-?}  ($(pango "$iface"))"
+  pings=""
+  [[ -n ${v[router_ping_ms]:-} ]] && pings="router ${v[router_ping_ms]}ms"
+  [[ -n ${v[internet_ping_ms]:-} ]] && pings="${pings:+$pings   }internet ${v[internet_ping_ms]}ms"
+  [[ -n $pings ]] && tooltip="$tooltip
+$pings"
+  tooltip="$tooltip
+↓ $(human_bytes "$rx")   ↑ $(human_bytes "$tx")  since link up
+Click to run a speed test"
+fi
+
+jq -nc --arg text "$text" --arg tooltip "$tooltip" --arg class "$class" \
+  '{text: $text, tooltip: $tooltip, class: $class}'

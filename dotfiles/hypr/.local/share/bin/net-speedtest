@@ -1,0 +1,216 @@
+#!/usr/bin/env bash
+
+# Internet speed test, ported from Omarchy 4's `omarchy-network-speedtest`
+# (shell/plugins/panels/speedtest drives it; the QML there is only the dials).
+#
+# How it measures, and why this beats speedtest-cli for a bar widget:
+# fast.com hands out a few Netflix OCA endpoints, we saturate them with N
+# parallel curl workers, and then read the *kernel's own* byte counters in
+# /sys/class/net/<if>/statistics/. Nothing has to parse curl's progress meter,
+# and because the counters are per-interface the number includes every retry
+# and header byte actually on the wire.
+#
+# Usage: net-speedtest [down|up|both] [--seconds N] [--stream|--json|--notify]
+#
+#   both      (default) download phase then upload phase
+#   --stream  print live "down <mbps>" / "up <mbps>" lines, one per second
+#   --json    print {"download":N,"upload":N} once finished
+#   --notify  post the result as a dunst notification (what waybar's click uses)
+#
+# Traps worth keeping in mind:
+#   - The first sample is always low: eight TCP connections are still in slow
+#     start. It is dropped from the average rather than averaged in, which is
+#     why --seconds below 3 is refused.
+#   - Upload needs a body to push, hence `dd if=/dev/zero | curl --data-binary`.
+#     The OCA endpoints accept POST and discard it.
+#   - Killing the workers means killing curl, not just the subshell: each
+#     worker is a `while` loop whose child curl would otherwise keep the link
+#     saturated after we return. Hence `pkill -P` on each worker pid.
+
+set -euo pipefail
+
+direction=both
+seconds=5
+output=human
+probe=1.1.1.1
+parallel=8
+url_count=3
+
+while (($#)); do
+  case "$1" in
+    down | up | both) direction=$1 ;;
+    --seconds) seconds=${2:?--seconds needs a value}; shift ;;
+    --stream) output=stream ;;
+    --json) output=json ;;
+    --notify) output=notify ;;
+    -h | --help)
+      sed -n '/^# Usage:/,/^#$/p' "$0" | sed 's/^# \{0,1\}//'
+      exit 0
+      ;;
+    *) echo "net-speedtest: unknown argument '$1'" >&2; exit 2 ;;
+  esac
+  shift
+done
+
+if [[ ! $seconds =~ ^[0-9]+$ ]] || ((seconds < 3)); then
+  echo "net-speedtest: --seconds must be an integer >= 3 (the first sample is discarded as TCP slow start)" >&2
+  exit 2
+fi
+
+for cmd in ip curl jq awk dd pkill; do
+  command -v "$cmd" >/dev/null || { echo "net-speedtest: $cmd is required" >&2; exit 1; }
+done
+
+iface=$(ip route get "$probe" 2>/dev/null |
+  awk '{ for (i = 1; i <= NF; i++) if ($i == "dev") { print $(i + 1); exit } }')
+
+if [[ -z ${iface:-} ]]; then
+  echo "net-speedtest: no route to the internet" >&2
+  exit 1
+fi
+for counter in rx_bytes tx_bytes; do
+  [[ -r /sys/class/net/$iface/statistics/$counter ]] ||
+    { echo "net-speedtest: cannot read $counter for $iface" >&2; exit 1; }
+done
+
+# The token is fast.com's own public web-client token, as shipped in Omarchy.
+# It is not a credential; fast.com hands the same one to every browser.
+fast_token="YXNkZmFzZGxmbnNkYWZoYXNkZmhrYWxm"
+mapfile -t urls < <(
+  curl -fsS "https://api.fast.com/netflix/speedtest/v2?https=true&token=$fast_token&urlCount=$url_count" 2>/dev/null |
+    jq -r '.targets[]?.url // empty'
+)
+
+if ((${#urls[@]} == 0)); then
+  echo "net-speedtest: could not fetch speed test endpoints from fast.com" >&2
+  exit 1
+fi
+
+worker_pids=()
+
+cleanup() {
+  local pid
+  for pid in "${worker_pids[@]:-}"; do
+    [[ -n $pid ]] || continue
+    pkill -TERM -P "$pid" 2>/dev/null || true
+    kill "$pid" 2>/dev/null || true
+  done
+  for pid in "${worker_pids[@]:-}"; do
+    [[ -n $pid ]] || continue
+    wait "$pid" 2>/dev/null || true
+  done
+  worker_pids=()
+}
+trap cleanup EXIT INT TERM
+
+# Round-robin the endpoints so load spreads across OCA nodes rather than
+# hammering whichever one came back first.
+start_workers() {
+  local dir=$1 i idx
+  worker_pids=()
+  for ((i = 0; i < parallel; i++)); do
+    (
+      idx=$((RANDOM))
+      while true; do
+        url=${urls[$((idx % ${#urls[@]}))]}
+        if [[ $dir == down ]]; then
+          curl -fsS -o /dev/null "$url" 2>/dev/null || exit 0
+        else
+          dd if=/dev/zero bs=1M count=64 2>/dev/null |
+            curl -fsS -o /dev/null -X POST --data-binary @- "$url" 2>/dev/null || exit 0
+        fi
+        idx=$((idx + 1))
+      done
+    ) &
+    worker_pids+=("$!")
+  done
+}
+
+counter_for() { [[ $1 == down ]] && echo rx_bytes || echo tx_bytes; }
+
+# Samples one direction for $seconds and leaves the average of samples 2..N
+# (slow start excluded) in the global $result_mbps.
+#
+# The average goes in a global rather than on stdout precisely so that stdout
+# stays free for --stream: a `$(measure down)` capture would otherwise swallow
+# the live lines along with the result, and streaming would print nothing.
+result_mbps=""
+measure() {
+  local dir=$1 counter file before after rate s
+  local -a samples=()
+
+  counter=$(counter_for "$dir")
+  file=/sys/class/net/$iface/statistics/$counter
+
+  start_workers "$dir"
+  before=$(<"$file")
+
+  for ((s = 1; s <= seconds; s++)); do
+    sleep 1
+    after=$(<"$file")
+    rate=$(awk -v b="$before" -v a="$after" 'BEGIN {
+      if (a < b) print 0; else printf "%.2f", (a - b) * 8 / 1000000
+    }')
+    before=$after
+    samples+=("$rate")
+    [[ $output == stream ]] && printf '%s %s\n' "$dir" "$rate"
+  done
+
+  cleanup
+
+  result_mbps=$(printf '%s\n' "${samples[@]:1}" | awk '
+    { sum += $1; n++ }
+    END { if (n) printf "%.1f\n", sum / n; else print "0.0" }')
+}
+
+# The name of the connection under test, for the notification title.
+conn_name() {
+  net-status 2>/dev/null |
+    awk -F'\t' '$1 == "wifi" { print $2 } $1 == "ethernet" { print "Ethernet" }'
+}
+
+# A fixed replace-id so the "running" notification turns into the result in
+# place instead of stacking two. Clicking the bar is otherwise silent for the
+# whole run (2 x --seconds plus the fast.com round trip), which reads as a
+# dead element.
+notify_id=9731
+notify_at() {
+  notify-send -a net-speedtest -r "$notify_id" -i network-wireless "$1" "$2"
+}
+
+name=""
+if [[ $output == notify ]]; then
+  name=$(conn_name)
+  notify_at "Speed test${name:+ — $name}" "Measuring…"
+fi
+
+download=""
+upload=""
+if [[ $direction == down || $direction == both ]]; then
+  measure down
+  download=$result_mbps
+fi
+if [[ $direction == up || $direction == both ]]; then
+  measure up
+  upload=$result_mbps
+fi
+
+case "$output" in
+  stream) ;;
+  json)
+    jq -nc --arg d "${download:-}" --arg u "${upload:-}" \
+      '{download: ($d | if . == "" then null else tonumber end),
+        upload:   ($u | if . == "" then null else tonumber end)}'
+    ;;
+  notify)
+    body=""
+    [[ -n $download ]] && body="↓ ${download} Mbps"
+    [[ -n $upload ]] && body="${body:+$body   }↑ ${upload} Mbps"
+    notify_at "Speed test${name:+ — $name}" "$body"
+    printf '%s\n' "$body"
+    ;;
+  human)
+    [[ -n $download ]] && printf 'download  %s Mbps\n' "$download"
+    [[ -n $upload ]] && printf 'upload    %s Mbps\n' "$upload"
+    ;;
+esac

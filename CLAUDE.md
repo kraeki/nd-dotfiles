@@ -653,6 +653,75 @@ drag Hyprland, the kernel and Mesa forward with it.
 - `codex` and `gemini-cli` still track the system pin. Move them here too if
   they start feeling stale.
 
+### Network element & speed test (ported from Omarchy 4)
+
+The bar had **no network module at all** (cpu/memory/battery/clock/tray/
+power-profiles only). This fills that gap with Omarchy 4's `omarchy.network`
+bar widget and its speedtest panel, reimplemented for waybar. Three scripts in
+`dotfiles/hypr/.local/share/bin/`:
+
+- `net-speedtest [down|up|both] [--seconds N] [--stream|--json|--notify]` —
+  the measurement, ported from `omarchy-network-speedtest`.
+- `net-status [--verbose]` — connection facts, ported from
+  `omarchy-network-status`. Tab-separated so awk can field-split it.
+- `net-waybar` — the waybar JSON module (`custom/network`, 3s interval,
+  `on-click` runs the speed test). Local, not ported: upstream's equivalent is
+  Quickshell QML.
+
+**How the speed test measures, and why not `speedtest-cli`:** fast.com's API
+hands out a few Netflix OCA endpoints; the script saturates them with 8
+parallel `curl` workers and then reads the **kernel's own** byte counters in
+`/sys/class/net/<if>/statistics/`. Nothing parses curl's progress meter, and
+the number includes every retry and header byte actually on the wire. The
+fast.com token in the script is the public web-client token, not a credential.
+Upload needs a body to push, hence `dd if=/dev/zero | curl --data-binary @-`.
+
+- **The first sample is always low** — eight TCP connections in slow start.
+  It is dropped from the average, which is why `--seconds` below 3 is refused.
+  Visible in `--stream`: a run here went `up 292 / up 423 / up 432`.
+- **Killing the workers means killing their curl children**, not just the
+  subshells: each worker is a `while` loop whose child curl would otherwise
+  keep saturating the link after the script returns. Hence `pkill -P` per pid.
+- Measured ~300 Mbps down / ~430 up on wifi here, against Init7 OCA nodes.
+
+**`measure()` leaves its result in a global, not on stdout.** A
+`download=$(measure down)` capture swallows the live `--stream` lines along
+with the average, so streaming printed nothing at all. Whichever way this is
+written, the live output and the result cannot share stdout.
+
+**Throughput needs state across invocations.** waybar runs the module as a
+fresh process every interval, so `net-waybar` deltas the byte counters against
+`$XDG_RUNTIME_DIR/net-waybar.state`. tmpfs and per-session is the point: a
+stale counter cannot outlive the link it described. A changed interface, a
+counter that went backwards (link bounced, `/sys` reset) or no previous sample
+all report 0 rather than a bogus spike. The 3s interval **is** the averaging
+window — a longer one smears bursts out.
+
+**Everything reaching waybar is pango-escaped.** waybar parses module text as
+markup, so a guest network called `Bar & Grill` would blank the module.
+
+**`iw` is required for the radio detail** and is in
+`modules/nixos/networking.nix` for exactly this. nmcli reports SIGNAL as a
+0-100% estimate and knows nothing else, so without `iw` the tooltip loses
+dBm, frequency (hence the 2.4/5/6 GHz band) and the negotiated tx bitrate —
+the scripts degrade to the percentage rather than failing. The band
+boundaries in `net-waybar` are ported from `omarchy-network-band`.
+
+The bar icon encodes signal strength via the five Nerd Font wifi glyphs, so
+there is no separate bar meter in the text. Only `class=disconnected` is
+coloured: an element that shouts on every poll stops being glanceable.
+
+**Why the whole Quickshell shell was not adopted.** Omarchy 4 "Quattro"
+replaced waybar, walker, mako, swayosd, hyprlock, hypridle, swaybg and
+polkit-gnome with one long-running Quickshell process. `quickshell` *is* in
+nixpkgs (0.3.0), so the engine is no obstacle — but the shell is 136 QML files
+across 17 plugin groups calling **82 distinct `omarchy-*` CLI commands**. It is
+a frontend over Omarchy's entire bash CLI (pacman, Arch paths,
+`omarchy-theme-set`), and adopting it means replacing every piece of this
+config's desktop at once. Revisit as its own project, not as a side-effect of
+wanting a speed test. Note its bar also takes **command modules that emit
+waybar JSON**, so `net-waybar` would survive such a migration unchanged.
+
 ### Workspace Layouts
 `Super+M` runs `toggle-workspace-layout [toggle|dwindle|scrolling|status] [-q]`
 in `dotfiles/hypr/.local/share/bin/`.
@@ -955,6 +1024,9 @@ The home printer is a **Brother DCP-9015CDW** colour laser MFP.
 - **Super+Print**: Color picker (hyprpicker)
 - **Super+Ctrl+Print**: Extract text from a region (OCR)
 - **Super+Shift+Print**: Decode a QR code from a region
+- **Click the bar's network element**: Run a fast.com speed test (down then
+  up, ~5s each); the result arrives as a notification. Hover it for SSID,
+  band, signal, bitrate, IP/gateway, router and internet ping, and totals.
 - **Super+M**: Toggle the active workspace between dwindle and scrolling layout
 - **Super+= / Super+-** (Shift optional, so `+` / `-` work): Step the focused
   monitor's scale up / down (`step-monitor-scale`)

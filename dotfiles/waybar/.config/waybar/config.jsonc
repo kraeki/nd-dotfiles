@@ -15,6 +15,7 @@
     "custom/l_end","tray","custom/r_end",
     "custom/l_end","power-profiles-daemon","custom/r_end",
     "custom/l_end","idle_inhibitor","battery", "custom/r_end",
+    "custom/l_end","custom/network","custom/r_end",
     "custom/l_end","clock","custom/r_end"
   ],
 
@@ -90,6 +91,23 @@
     "max-length": 10,
     "tooltip": true,
     "tooltip-format": "󰾆 {percentage}%\n {used:0.1f}GB/{total:0.1f}GB"
+  },
+
+  // Wi-Fi state + live throughput; click runs the fast.com speed test.
+  // Ported from Omarchy 4's omarchy.network bar widget and its speedtest
+  // panel, both Quickshell QML upstream -- see net-waybar / net-speedtest.
+  // The 3s interval is also the throughput window: net-waybar deltas the
+  // kernel byte counters between invocations, so a longer interval would
+  // smear a burst out over it.
+  "custom/network": {
+    "exec": "net-waybar",
+    "return-type": "json",
+    "format": "{}",
+    "rotate": 0,
+    "interval": 3,
+    "tooltip": true,
+    "on-click": "net-speedtest --notify",
+    "max-length": 1000
   },
 
   "custom/cpuinfo": {

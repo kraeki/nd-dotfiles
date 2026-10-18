@@ -1,0 +1,157 @@
+#!/usr/bin/env bash
+
+# Active-connection facts, ported from Omarchy 4's `omarchy-network-status`.
+# Tab-separated so awk can pick fields off it without a JSON parser.
+#
+# Usage: net-status [--verbose]
+#
+#   (no args)   one line: <kind>\t<name>\t<signal%>\t<freq MHz>
+#               kind is wifi | ethernet | disconnected
+#   --verbose   key\tvalue lines: iface, ip, prefix, gateway, rx_bytes,
+#               tx_bytes, type, and per-type extras (ssid/signal_dbm/freq/
+#               bitrate for Wi-Fi; speed/duplex for Ethernet), then
+#               router_ping_ms and internet_ping_ms
+#
+# "Which interface" is answered by `ip route get 1.1.1.1` rather than by
+# picking the first UP device: with a dock, a VPN and docker0 all present,
+# the only interface that matters is the one carrying the default route.
+#
+# `iw` supplies signal_dbm, freq and bitrate. It degrades to empty rather
+# than failing when iw is absent, but the Wi-Fi detail is then blank --
+# nmcli's SIGNAL is a 0-100% estimate, not dBm, and knows no bitrate.
+
+set -uo pipefail
+
+probe=1.1.1.1
+verbose=false
+
+case "${1:-}" in
+  "") ;;
+  --verbose) verbose=true ;;
+  -h | --help)
+    sed -n '/^# Usage:/,/^#$/p' "$0" | sed 's/^# \{0,1\}//'
+    exit 0
+    ;;
+  *) echo "Usage: net-status [--verbose]" >&2; exit 2 ;;
+esac
+
+route_device() {
+  ip route get "$probe" 2>/dev/null |
+    awk '{ for (i = 1; i <= NF; i++) if ($i == "dev") { print $(i + 1); exit } }'
+}
+
+is_wireless() { [[ -d /sys/class/net/$1/wireless ]]; }
+
+print_status() {
+  local device nm state ssid signal freq
+
+  device=$(route_device)
+  if [[ -z $device ]]; then
+    printf 'disconnected\t\t\t\n'
+    return
+  fi
+
+  if ! is_wireless "$device"; then
+    printf 'ethernet\t%s\t\t\n' "$device"
+    return
+  fi
+
+  # LC_ALL=C: nmcli translates its state words, and "connected" would stop
+  # matching under a German session.
+  nm=$(LC_ALL=C nmcli -t -f GENERAL.STATE,GENERAL.CONNECTION dev show "$device" 2>/dev/null)
+  state=$(awk -F: '$1 == "GENERAL.STATE" { print $2; exit }' <<<"$nm")
+  ssid=$(awk -F: '$1 == "GENERAL.CONNECTION" { print $2; exit }' <<<"$nm")
+  # --rescan no reads NetworkManager's cache; forcing a scan would stall every
+  # poll for seconds, and the bar polls this.
+  signal=$(LC_ALL=C nmcli -t -f IN-USE,SIGNAL dev wifi list ifname "$device" --rescan no 2>/dev/null |
+    awk -F: '$1 == "*" { print $2; exit }')
+  freq=$(iw dev "$device" link 2>/dev/null | awk '/freq:/ { print $2; exit }')
+
+  if [[ $state != 100* ]]; then
+    printf 'disconnected\t\t\t\n'
+    return
+  fi
+
+  printf 'wifi\t%s\t%s\t%s\n' "${ssid:-$device}" "$signal" "$freq"
+}
+
+ping_latency_ms() {
+  LC_ALL=C ping -n -c 1 -W 1 "$1" 2>/dev/null |
+    awk -F'time[=<]' '/time[=<]/ { split($2, p, " "); print p[1]; exit }'
+}
+
+# Both pings run concurrently: serially this doubles the worst case to 2s,
+# which is long enough to be felt in a bar tooltip.
+print_ping_samples() {
+  local gateway=$1 tmpdir router_pid="" internet_pid=""
+
+  command -v ping >/dev/null || return
+  tmpdir=$(mktemp -d) || return
+
+  if [[ -n $gateway ]]; then
+    ping_latency_ms "$gateway" >"$tmpdir/router" &
+    router_pid=$!
+  fi
+  ping_latency_ms "$probe" >"$tmpdir/internet" &
+  internet_pid=$!
+
+  if [[ -n $router_pid ]]; then
+    wait "$router_pid"
+    printf 'router_ping_ms\t%s\n' "$(<"$tmpdir/router")"
+  fi
+  wait "$internet_pid"
+  printf 'internet_ping_ms\t%s\n' "$(<"$tmpdir/internet")"
+  rm -rf "$tmpdir"
+}
+
+print_verbose() {
+  local route_json iface gw src prefix link
+
+  route_json=$(ip -j route get "$probe" 2>/dev/null)
+  [[ -z $route_json ]] && return
+
+  iface=$(jq -r '.[0].dev // ""' <<<"$route_json" 2>/dev/null)
+  gw=$(jq -r '.[0].gateway // ""' <<<"$route_json" 2>/dev/null)
+  src=$(jq -r '.[0].prefsrc // ""' <<<"$route_json" 2>/dev/null)
+  [[ -z $iface ]] && return
+
+  prefix=$(ip -j addr show "$iface" 2>/dev/null |
+    jq -r '.[0].addr_info[]? | select(.family == "inet") | .prefixlen // ""' 2>/dev/null | head -n 1)
+
+  printf 'iface\t%s\n' "$iface"
+  printf 'ip\t%s\n' "$src"
+  printf 'prefix\t%s\n' "$prefix"
+  printf 'gateway\t%s\n' "$gw"
+
+  [[ -r /sys/class/net/$iface/statistics/rx_bytes ]] &&
+    printf 'rx_bytes\t%s\n' "$(</sys/class/net/"$iface"/statistics/rx_bytes)"
+  [[ -r /sys/class/net/$iface/statistics/tx_bytes ]] &&
+    printf 'tx_bytes\t%s\n' "$(</sys/class/net/"$iface"/statistics/tx_bytes)"
+
+  if is_wireless "$iface"; then
+    printf 'type\twifi\n'
+    if command -v iw >/dev/null; then
+      link=$(iw dev "$iface" link 2>/dev/null)
+      if [[ -n $link ]]; then
+        printf 'ssid\t%s\n' "$(awk '/SSID:/ { sub(/.*SSID: /, ""); print; exit }' <<<"$link")"
+        printf 'signal_dbm\t%s\n' "$(awk '/signal:/ { print $2; exit }' <<<"$link")"
+        printf 'freq\t%s\n' "$(awk '/freq:/ { print $2; exit }' <<<"$link")"
+        printf 'bitrate\t%s %s\n' \
+          "$(awk '/tx bitrate:/ { print $3; exit }' <<<"$link")" \
+          "$(awk '/tx bitrate:/ { print $4; exit }' <<<"$link")"
+      fi
+    fi
+  else
+    printf 'type\tethernet\n'
+    [[ -r /sys/class/net/$iface/speed ]] && printf 'speed\t%s\n' "$(</sys/class/net/"$iface"/speed)"
+    [[ -r /sys/class/net/$iface/duplex ]] && printf 'duplex\t%s\n' "$(</sys/class/net/"$iface"/duplex)"
+  fi
+
+  print_ping_samples "$gw"
+}
+
+if [[ $verbose == true ]]; then
+  print_verbose
+else
+  print_status
+fi

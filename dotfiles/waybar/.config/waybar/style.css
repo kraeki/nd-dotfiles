@@ -76,6 +76,7 @@ tooltip {
 #bluetooth,
 #clock,
 #custom-cpuinfo,
+#custom-network,
 #cpu,
 #idle_inhibitor,
 #power-profiles-daemon,
@@ -96,6 +97,13 @@ tooltip {
 
 #workspaces {
     padding: 0px;
+}
+
+/* net-waybar sets class=wifi|ethernet|disconnected. Only the offline state
+   is coloured: a bar element that shouts on every poll stops being glanceable,
+   and "connected" is the case you do not need to be told about. */
+#custom-network.disconnected {
+    color: @wb-urg-bg;
 }
 
 #custom-r_end {
