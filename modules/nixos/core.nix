@@ -46,6 +46,7 @@
       fd
       usbutils
       git
+      git-lfs
       tig
       gnumake
       cmake
