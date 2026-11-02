@@ -1,0 +1,97 @@
+#!/usr/bin/env bash
+#
+# nd-contexts — the single source of truth for "work contexts".
+#
+#   nd-contexts list                      name, workspace, email, label (TSV)
+#   nd-contexts names                     context names, one per line
+#   nd-contexts workspace <name>          workspace id
+#   nd-contexts email <name>              signed-in Google account
+#   nd-contexts label <name>              human label
+#   nd-contexts email-for-workspace <ws>  reverse lookup (empty if unmapped)
+#   nd-contexts profile <name>            Chrome profile DIRECTORY for <name>
+#   nd-contexts check                     verify every email resolves (exit 1 if not)
+#
+# A context is one of the hats worn here: an organisation, its Google account,
+# and the workspace its windows live on. Two consumers need the mapping in
+# OPPOSITE directions -- _get_chrome_profile.sh asks "which account belongs to
+# the workspace I am on?" while goto-context asks "which workspace does this
+# context live on?" -- so the table lives here and nowhere else. Same reason
+# net-status owns band_for_freq: two readers of one fact must not be able to
+# disagree about it.
+#
+# `profile` resolves email -> profile directory through Chrome's own Local
+# State rather than hardcoding "Profile 17", because Chrome renumbers profiles
+# and a stale number silently opens the WRONG account. Run `nd-contexts check`
+# after adding a context or signing into Chrome afresh.
+set -euo pipefail
+
+# name  workspace  email  label
+contexts=$(
+  cat <<'TSV'
+roche	1	andreas.schmid.as3@roche.com	Roche
+private	3	ikeark@gmail.com	Private
+jacw	5	andreas.schmid@jacwohlen.ch	JACW
+team85	7	andreas.schmid@team85.ch	Team85
+ajv	9	andreas.schmid@ajv.ag	AJV
+TSV
+)
+
+localstate="$HOME/.config/google-chrome/Local State"
+
+die() { echo "nd-contexts: $*" >&2; exit 1; }
+
+# Field <n> of the row named <name>. Reads to EOF rather than `awk ... {exit}`:
+# under `set -euo pipefail` an early-exiting awk closes the pipe, the writer
+# takes SIGPIPE and -e kills the script with no message at all.
+field() {
+  local name="$1" n="$2" out
+  out=$(printf '%s\n' "$contexts" | awk -F'\t' -v n="$name" -v f="$n" \
+    '$1 == n { v = $f } END { if (v != "") print v }')
+  [[ -n $out ]] || die "unknown context '$name' (try: nd-contexts names)"
+  printf '%s\n' "$out"
+}
+
+# email -> Chrome profile directory. jq's first() rather than `| head -1`:
+# head closes the pipe early, which is the same SIGPIPE trap as above.
+profile_for_email() {
+  local email="$1"
+  [[ -r $localstate ]] || die "cannot read $localstate"
+  jq -r --arg e "$email" \
+    'first(.profile.info_cache | to_entries[] | select(.value.user_name == $e) | .key) // ""' \
+    "$localstate"
+}
+
+case "${1:-}" in
+  list)  printf '%s\n' "$contexts" ;;
+  names) printf '%s\n' "$contexts" | cut -f1 ;;
+  workspace) field "${2:?context name required}" 2 ;;
+  email)     field "${2:?context name required}" 3 ;;
+  label)     field "${2:?context name required}" 4 ;;
+  email-for-workspace)
+    ws="${2:?workspace id required}"
+    printf '%s\n' "$contexts" | awk -F'\t' -v w="$ws" \
+      '$2 == w { v = $3 } END { if (v != "") print v }'
+    ;;
+  profile)
+    profile_for_email "$(field "${2:?context name required}" 3)"
+    ;;
+  check)
+    rc=0
+    while IFS=$'\t' read -r name ws email label; do
+      [[ -n ${name:-} ]] || continue
+      dir=$(profile_for_email "$email")
+      if [[ -n $dir ]]; then
+        printf 'ok    %-8s ws %-2s %-32s %s\n' "$name" "$ws" "$email" "$dir"
+      else
+        printf 'FAIL  %-8s ws %-2s %-32s no Chrome profile signed in as this account\n' \
+          "$name" "$ws" "$email"
+        rc=1
+      fi
+    done < <(printf '%s\n' "$contexts")
+    exit $rc
+    ;;
+  *)
+    sed -n '2,/^set -euo/p' "$0" | sed 's/^#\s\?//; $d'
+    exit 1
+    ;;
+esac

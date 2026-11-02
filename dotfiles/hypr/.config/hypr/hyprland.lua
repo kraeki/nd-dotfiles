@@ -833,6 +833,38 @@ hl.define_submap("rofiselect", function()
     hl.bind("escape", hl.dsp.submap("reset"), { description = "Leave apps submap" })
 end)
 
+-- Work-context submap (Super+W) ----------------------------------------------
+-- "Take me to AJV" (or JACW / Team85 / Roche / Private): jump to that
+-- context's workspace and make sure its Chrome window is there, signed into
+-- that context's account. goto-context does the work; nd-contexts owns the
+-- workspace/account table and browser-launcher.sh reads the same table from
+-- the other direction.
+--
+-- A submap rather than top-level binds because Super+A/R/T/S are all taken and
+-- one leader keeps the contexts together; the keys are the obvious initials.
+-- The same script is also exposed to vicinae as one .desktop per context (see
+-- dotfiles/hypr/.local/share/applications/context-*.desktop), so these are
+-- reachable by search as well as by key -- no vicinae extension needed, which
+-- is why there isn't one.
+--
+-- Adding a context is two lines: a row in nd-contexts and a key here.
+local contexts = {
+    A = "ajv",
+    J = "jacw",
+    T = "team85",
+    R = "roche",
+    P = "private",
+}
+
+hl.bind(mainMod .. " + W", hl.dsp.submap("context"), { description = "Work context submap: jump to a context's workspace + browser" })
+hl.define_submap("context", function()
+    for key, name in pairs(contexts) do
+        hl.bind(key, submapExec(string.format("%s/goto-context %s", srcPath, name)),
+            { description = "Go to the " .. name .. " context" })
+    end
+    hl.bind("escape", hl.dsp.submap("reset"), { description = "Leave context submap" })
+end)
+
 -- Resize submap (Super+R)
 hl.bind(mainMod .. " + R", hl.dsp.submap("resize"), { description = "Resize submap: resize the focused window" })
 hl.define_submap("resize", function()

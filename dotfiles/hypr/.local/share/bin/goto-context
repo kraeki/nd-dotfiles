@@ -1,0 +1,88 @@
+#!/usr/bin/env bash
+#
+# goto-context <name> [-q]
+#
+# "Take me to AJV" (or JACW, Team85, Roche, Private): switch to that context's
+# workspace and make sure its Chrome window is there, with the right account.
+#
+#   1. focus the context's workspace
+#   2. a normal Chrome window already on it?  -> focus it
+#      otherwise                              -> launch one with that profile
+#
+# Bound under the Super+W submap, and exposed to vicinae as one .desktop per
+# context (see ../applications/). The context table itself lives in
+# nd-contexts, which is also what browser-launcher.sh reads -- see the note
+# there on why both directions of the mapping share one table.
+#
+# WHY "a Chrome window on that workspace" is the test, rather than "a Chrome
+# window belonging to that profile": a window's profile is NOT discoverable.
+# Every Chrome window here reports class `google-chrome` and -- because Chrome
+# is one process serving all profiles -- the SAME pid, so neither
+# `hyprctl clients` nor /proc/<pid>/cmdline can tell them apart (the cmdline
+# shows only whichever profile started the process). The one exception is
+# `--app=` windows, which encode site and profile in their class
+# (chrome-calendar.google.com__-Profile_15); those are webapp.sh's windows and
+# are deliberately EXCLUDED here, so a pinned Google Calendar does not count
+# as "Chrome is already here".
+#
+# The consequence to know: since each context owns a workspace and
+# browser-launcher.sh derives the profile FROM the workspace, any ordinary
+# Chrome window sitting on ws 9 was opened as AJV. Drag one across workspaces
+# by hand and that stops being true -- this will then focus it instead of
+# opening the right account.
+#
+# Workspace first, THEN launch: Hyprland maps a new window on the ACTIVE
+# workspace, so launching before switching drops the window where you came
+# from.
+set -euo pipefail
+
+self_dir=$(dirname "$(readlink -f "$0")")
+quiet=0
+name=""
+
+for arg in "$@"; do
+  case "$arg" in
+    -q | --quiet) quiet=1 ;;
+    -h | --help) echo "usage: goto-context <$("$self_dir/nd-contexts" names | paste -sd'|')> [-q]"; exit 0 ;;
+    -*) echo "goto-context: unknown option '$arg'" >&2; exit 1 ;;
+    *) name="$arg" ;;
+  esac
+done
+
+[[ -n $name ]] || {
+  echo "usage: goto-context <$("$self_dir/nd-contexts" names | paste -sd'|')> [-q]" >&2
+  exit 1
+}
+
+ws=$("$self_dir/nd-contexts" workspace "$name")
+label=$("$self_dir/nd-contexts" label "$name")
+profile=$("$self_dir/nd-contexts" profile "$name")
+
+notify() {
+  ((quiet)) && return 0
+  command -v dunstify >/dev/null 2>&1 &&
+    dunstify -a "context" -r 91346 -t 1500 "$1" || true
+}
+
+[[ -n $profile ]] || {
+  notify "$label: no Chrome profile for $("$self_dir/nd-contexts" email "$name")"
+  echo "goto-context: no Chrome profile signed in as $("$self_dir/nd-contexts" email "$name")" >&2
+  echo "              run 'nd-contexts check' to see the whole table" >&2
+  exit 1
+}
+
+# 1. Go there.
+hyprctl dispatch "hl.dsp.focus({ workspace = $ws })" >/dev/null
+
+# 2. An ordinary Chrome window already on that workspace? `--app=` windows
+#    (class chrome-<host>__-<Profile_N>) do not count, hence the exact ==.
+addr=$(hyprctl clients -j 2>/dev/null | jq -r --argjson ws "$ws" \
+  'first(.[] | select(.class == "google-chrome" and .workspace.id == $ws) | .address) // ""')
+
+if [[ -n $addr ]]; then
+  hyprctl dispatch "hl.dsp.focus({ window = \"address:$addr\" })" >/dev/null
+else
+  notify "$label → opening Chrome ($profile)"
+  setsid google-chrome-stable "--profile-directory=$profile" --new-window \
+    >/dev/null 2>&1 &
+fi

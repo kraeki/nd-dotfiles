@@ -1,0 +1,24 @@
+# Makes `goto-context ajv` an entry in vicinae (and any other XDG launcher),
+# which index ~/.local/share/applications. This is why there is no vicinae
+# EXTENSION for contexts: a desktop entry gets them into the launcher for free,
+# and the Super+W submap covers the keyboard path. Same trick as
+# toggle-laptop-display.desktop.
+#
+# Exec is an ABSOLUTE path, unquoted, with no `sh -c` wrapper: the
+# desktop-entry spec only defines DOUBLE-quote quoting (and needs `$`
+# backslash-escaped inside it), so `sh -c '...'` is parser-dependent. The path
+# has no spaces, so bare is safe.
+#
+# Generated from the nd-contexts table; regenerate rather than hand-editing.
+# New entries need a vicinae restart (`vicinae server --replace`) to appear.
+[Desktop Entry]
+Type=Application
+Name=AJV
+GenericName=Work context
+Comment=Go to the AJV workspace (ws 9) and open Chrome as andreas.schmid@ajv.ag
+Icon=applications-office
+Terminal=false
+Categories=Network;WebBrowser;
+Keywords=context;workspace;switch;chrome;profile;ajv;AJV;
+TryExec=/home/kraeki/.local/share/bin/goto-context
+Exec=/home/kraeki/.local/share/bin/goto-context ajv

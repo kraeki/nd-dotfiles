@@ -969,6 +969,68 @@ keyboard layout (CH puts `+` on Shift+1 and `-` where US has `/`). The
 `code:108` dictation bind has the same dead signature and is flagged in
 `hyprland.lua`; fixing it needs `Control_R` tested on the real keyboard.
 
+### Work contexts (Super+W)
+The hats worn on this machine — Roche, Private, JACW, Team85, AJV — each being
+an organisation, its Google account, and the workspace its windows live on.
+`Super+W` opens a submap; one key per context jumps there:
+
+| key | context | ws | account |
+|---|---|---|---|
+| `R` | Roche   | 1 | andreas.schmid.as3@roche.com |
+| `P` | Private | 3 | ikeark@gmail.com |
+| `J` | JACW    | 5 | andreas.schmid@jacwohlen.ch |
+| `T` | Team85  | 7 | andreas.schmid@team85.ch |
+| `A` | AJV     | 9 | andreas.schmid@ajv.ag |
+
+Three scripts in `dotfiles/hypr/.local/share/bin/`:
+- **`nd-contexts`** owns the table — `list`, `names`, `workspace`, `email`,
+  `label`, `email-for-workspace`, `profile`, `check`.
+- **`goto-context <name>`** focuses the context's workspace, then focuses the
+  ordinary Chrome window already there or launches one with that profile.
+- **`_get_chrome_profile.sh`** (behind `browser-launcher.sh`,
+  `Super+Shift+Return`) is now a thin consumer of `nd-contexts`.
+
+**The table lives in exactly one place because two consumers read it in
+opposite directions** — `_get_chrome_profile.sh` asks "which account belongs to
+the workspace I am on?", `goto-context` asks "which workspace does this context
+live on?". Same discipline as `net-status` owning `band_for_freq`. Do not
+reintroduce a local `case "$ws"`: that is how they drift, and they had. The old
+hardcoded table claimed ws 7 was **`nd@team85.ch`, an account with no Chrome
+profile at all** (the real one is `andreas.schmid@team85.ch`), so
+`Super+Shift+Return` on workspace 7 silently opened Chrome's **Default**
+profile. `nd-contexts check` resolves every row and exits non-zero on a miss —
+run it after adding a context or signing into Chrome afresh.
+
+**Profiles are resolved by email through Chrome's `Local State`, never
+hardcoded as `Profile 17`.** Chrome renumbers profiles, and a stale number
+opens the wrong account silently. Same reasoning as the `Super+A` app submap.
+
+**A Chrome window's profile is not discoverable, so "is Chrome already here?"
+is asked per *workspace*.** Every ordinary Chrome window reports class
+`google-chrome`, and because Chrome is **one process serving all profiles**,
+they all report the **same pid** — so neither `hyprctl clients` nor
+`/proc/<pid>/cmdline` can tell them apart (the cmdline shows only whichever
+profile happened to start the process). The one exception is `--app=` windows,
+which encode site *and* profile in their class
+(`chrome-calendar.google.com__-Profile_15`); those are `webapp.sh`'s and are
+deliberately excluded, so a pinned Google Calendar does not count as "Chrome is
+already here". The workspace test works because `browser-launcher.sh` derives
+the profile *from* the workspace, so an ordinary Chrome window on ws 9 was
+opened as AJV — drag one across workspaces by hand and that stops being true.
+
+**Workspace first, then launch.** Hyprland maps a new window on the *active*
+workspace, so launching before switching drops the window where you came from.
+
+**There is deliberately no vicinae extension for this.** vicinae indexes
+`~/.local/share/applications`, so one generated
+`context-<name>.desktop` per context puts them in the launcher for free — the
+same trick as `toggle-laptop-display.desktop`. An extension would have to shell
+out to `hyprctl` anyway while adding a TS build in a separate repo, a server
+restart to appear, and a launcher round-trip to something worth one keystroke.
+Adding a context is two lines: a row in `nd-contexts` and a key in the submap
+table in `hyprland.lua` (then regenerate the desktop entry and restart the
+vicinae server).
+
 ### Launcher System
 Uses `vicinae` as the primary application launcher:
 - Started as server: `vicinae server` in Hyprland exec-once
@@ -1222,6 +1284,9 @@ The home printer is a **Brother DCP-9015CDW** colour laser MFP.
     `Super+Backspace` = `$srcPath/logoutlaunch.sh`, a script that has never
     existed in this repo — the bind was silently dead). There is now **no logout
     keybind**, and no `wlogout` installed; log out with `loginctl`.
+- **Super+W**: Work-context submap — `R` Roche · `P` Private · `J` JACW ·
+  `T` Team85 · `A` AJV. Jumps to that context's workspace and focuses or opens
+  Chrome with its account (see Work contexts above). Also in vicinae by name.
 - **Super+A**: App / selector submap (launch-or-focus; second press focuses, never duplicates)
   - `Y` YouTube · `W` WhatsApp · `T` Telegram · `P` Photos · `M` Maps (private Chrome profile)
   - `C` Calendar · `G` Gmail · `D` Drive (Roche work Chrome profile)
