@@ -570,8 +570,13 @@ not in nixpkgs, so the upstream prebuilt binary is patchelf'd onto the NixOS
 loader (bump `version` + `hash` together).
 
 The bind runs `toggle-herdr [toggle|on|off|status] [-q]` in
-`dotfiles/hypr/.local/share/bin/` rather than a bare
-`hl.dsp.workspace.toggle_special("herdr")`, because unlike Slack and Obsidian
+`dotfiles/hypr/.local/share/bin/` — now a **thin wrapper** over
+`toggle-scratchpad-app`, the single implementation it shares with
+`toggle-grok-bot` (same shape as `lid-close.sh`/`lid-open.sh` wrapping
+`toggle-laptop-display`). Everything herdr-specific is in the wrapper's
+arguments: the anchored class regex, `--strip-env HERDR_`, and the 5s map
+timeout. It exists rather than a bare
+`hl.dsp.workspace.toggle_special("herdr")` because unlike Slack and Obsidian
 **herdr is deliberately not in `exec-once`** — it is a TUI, so autostarting it
 would mean a kitty plus a herdr session at every login. The first `F3` launches
 it; every later one is a plain toggle.
@@ -596,10 +601,17 @@ it; every later one is a plain toggle.
   detaches, it does not kill the session.
 
 ### grok (xAI's terminal coding agent)
-"Grok Build" / "Grok Bot" (x.ai/bot, x.ai/build) — xAI's answer to Claude Code,
-a TUI agent run as `grok` (`grok --help` for the flags; it also speaks ACP and
-runs headless). Packaged in `pkgs/grok.nix` and listed in
+"Grok Build" (x.ai/build, artifacts under `x.ai/cli`) — xAI's answer to Claude
+Code, a TUI agent run as `grok` (`grok --help` for the flags; it also speaks ACP
+and runs headless). Packaged in `pkgs/grok.nix` and listed in
 `users/kraeki/home.nix`, same shape as herdr.
+
+**This is not Grok Bot.** `x.ai/bot` is a separate product — an Electron
+desktop app driving persistent cloud agents, packaged here as
+`pkgs/grok-bot.nix` (see its own section below). Nothing is shared: different
+artifact, different CDN, different binary, different subscription. An earlier
+version of this section listed both names and both URLs for the CLI alone,
+which made `grok` look like the thing `x.ai/bot` ships; it is not.
 
 - **It needs no `autoPatchelfHook`.** Unlike the herdr binary, the Grok one is
   **static-pie linked** — `file` says so and there is no INTERP segment — so it
@@ -623,6 +635,89 @@ runs headless). Packaged in `pkgs/grok.nix` and listed in
   the hosts — hence the matching `config.allowUnfree` on the flake-level `pkgs`.
 - Auth is `grok login` (writes `~/.grok/auth.json`) or a `GROK_DEPLOYMENT_KEY`
   env var. Deliberately unmanaged: it is a credential, not config.
+
+### grok-bot (xAI's desktop agent app)
+
+**A different product from `grok`.** `x.ai/bot` ships "Grok Bot": an Electron
+desktop app driving persistent agents that run on xAI's own cloud machines and
+keep working after the laptop closes. `pkgs/grok.nix` is the *terminal* agent.
+Shared: nothing — artifact, CDN, binary name and subscription all differ.
+
+Packaged in `pkgs/grok-bot.nix` with `appimageTools.wrapType2`, the same shape
+as `pkgs/tldraw-offline.nix` (not herdr/grok's `fetchurl` + patchelf — this is a
+full Electron bundle, not one binary).
+
+- Installed via `users/kraeki/home.nix` and listed in the flake's `packages`
+  output (so CI pre-builds the 137 MiB AppImage into Cachix rather than every
+  machine fetching it). Those two go together: the `packages` contract is "the
+  exact derivations the system and home configs use", so neither belongs there
+  alone. It needs a paid seat (X Premium/Super/Ultra, SuperGrok, or Grok
+  Business) before it will sign in; `grok login` does nothing for it, the app
+  carries its own sign-in.
+- **Lives on its own scratchpad**, `special:grokbot`, toggled by
+  **Super+`** (the key left of 1) — joining Slack (`F1`), Obsidian (`F2`) and
+  herdr (`F3`). `Super+Ctrl+`` ` `` throws the focused window onto it.
+  - Like herdr and unlike Slack/Obsidian it is **not autostarted**, so the
+    bind runs `toggle-grok-bot` rather than a bare
+    `hl.dsp.workspace.toggle_special`: the first press has to launch it, and a
+    window rule placing a window on a special workspace does **not** make that
+    workspace visible. To autostart it instead, add `hl.exec_cmd("grok-bot")`
+    to the AUTOSTART block — the window rule already pins it, and the script
+    then only ever toggles.
+  - The window class is **confirmed `grok-bot`** on a running instance, matching
+    the desktop entry's `StartupWMClass`. The rule's pattern is still loose over
+    case and separator so an Electron rename to "Grok Bot" cannot silently
+    unpin it.
+  - **The bind is registered twice, on `grave` AND `section`.** That one
+    physical key has no single keysym across the two layouts here: `us` gives
+    `grave`, `ch` gives `section` — xkb's `ch` has no plain `grave` *anywhere*
+    (a backtick there is `dead_grave`+space on the `^` key). A `grave`-only
+    bind is therefore silently dead whenever CH is active. Same class of
+    problem as the `equal`/`minus` binds moving with the layout.
+  - **Under Super, not bare.** On the US layout that key *is* the backtick, so
+    a bare bind would make `` ` `` untypable — fatal for markdown and shell.
+    The bare `F1`/`F2`/`F3` scratchpad binds get away with it only because
+    F-keys type nothing. Drop the `mainMod .. " + "` from both lines to go
+    bare anyway.
+- **Artifacts live under a commit sha, so `version` + `commit` + `hash` move
+  together** — `.../grokbot/stable/<commit>/linux/x64/Grok_Bot_<version>.AppImage`.
+- **There is no "latest" endpoint.** `https://cursor.com/api/download` answers
+  with JSON carrying `version` + `commitSha`, but it describes **Cursor** and
+  ignores any product parameter (`?product=grokbot`, `/api/download/grokbot`,
+  `/api/download/bot` — all either Cursor's own JSON or the SPA shell). Read
+  both fields off `https://cursor.com/download/bot` instead. Note this is
+  Cursor's CDN and Cursor's download page, not an x.ai host.
+- **The community indexes go stale fast.** `falser101/grok-bot-linux` publishes
+  a tidy `versions.json` claiming `latest: 0.24.0` while upstream is at 0.78.1.
+  Its URLs are genuine and still resolve; its "latest" is not. Treat such a
+  repo as a URL-pattern reference only.
+- **`x.ai/bot` and `docs.x.ai` return 403 to curl** (and to WebFetch) whatever
+  the user agent. The download page on `cursor.com` is fetchable. Budget for
+  this before concluding a URL is dead — and note a bare `curl` probe of the
+  CDN is likewise worthless on its own, as it 403s for a merely *misspelled*
+  filename, not just a missing one.
+- **Filenames are inconsistent across formats.** AppImage and tar.gz are
+  `Grok_Bot_<version>.<ext>`; the deb is `grok-bot_<version>_amd64.deb`. The
+  rpm is at neither spelling (`Grok_Bot_<version>.rpm` 403s), so do not
+  extrapolate the pattern — verify the exact name per format.
+- **`--no-sandbox` must stay in the desktop entry.** Upstream ships
+  `Exec=AppRun --no-sandbox -- %U`; only `AppRun` is rewritten. Chromium's
+  sandbox needs a setuid `chrome-sandbox` helper, which a store path cannot be.
+- **`StartupWMClass=grok-bot` is the Hyprland window class**, so that is the
+  string a window rule or `launch-or-focus.sh` would key off. The entry also
+  registers two URL schemes, `grokbot:` and `sand:`, used to hand a job to the
+  app. No Wayland flags needed: `modules/nixos/desktop.nix` already exports
+  `NIXOS_OZONE_WL = "1"`, which Electron honours.
+- **Finding the squashfs offset to inspect an AppImage without running it:**
+  it is `e_shoff + e_shentsize * e_shnum` from the ELF header, then
+  `unsquashfs -o <offset>`. Do **not** `grep -abo hsqs` for it — that hits a
+  false positive inside the ELF itself (32609 here against a real 188392) and
+  `unsquashfs` then reports "Can't find a valid SQUASHFS superblock", which
+  reads like a corrupt download. Worth doing: it is how the binary name,
+  desktop entry and the eight icon sizes were confirmed rather than assumed.
+  Incidentally the AppImage *runtime* is dynamically linked here, unlike
+  `grok`'s static-pie binary — irrelevant to `appimageTools`, which extracts
+  rather than executes it.
 
 ### Claude Code (its own nixpkgs input)
 
@@ -1143,6 +1238,10 @@ The home printer is a **Brother DCP-9015CDW** colour laser MFP.
   had on `Super+U` / `Super+Ctrl+U` — one pad, three ways in, rather than a
   second indistinguishable one.
 - **Super+Escape**: Lock screen (hyprlock)
+- **Super+`** (the key left of 1; also bound on `section` for the CH layout):
+  Toggle the Grok Bot scratchpad; **Super+Ctrl+`** moves the focused window onto
+  it. Launches Grok Bot on first press. Not the `grok` CLI; see the grok-bot
+  section above.
 - **F1 / F2 / F3**: Toggle the Slack / Obsidian / herdr scratchpad
   (`Super+Ctrl+F1|F2|F3` move the focused window onto one). F3 launches herdr on
   first use — see the herdr section above. The unnamed scratchpad is on

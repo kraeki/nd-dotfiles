@@ -1,0 +1,29 @@
+#!/usr/bin/env bash
+#
+# toggle-grok-bot [toggle|on|off|status] [-q]
+#
+# Grok Bot (x.ai/bot), xAI's Electron desktop agent app, on its own special
+# workspace -- bound to Super+` alongside Slack (F1), Obsidian (F2) and herdr
+# (F3). NOT the `grok` CLI.
+#
+# Thin wrapper around toggle-scratchpad-app, as toggle-herdr is.
+#
+# Lazy-launched rather than autostarted in exec-once like Slack and Obsidian:
+# it is a ~140 MiB Electron app gated behind a paid seat, so a login wall at
+# every boot is not worth it. To make it behave like Slack instead, add
+# `hl.exec_cmd("grok-bot")` to the AUTOSTART block in hyprland.lua -- the
+# window rule already pins it to the scratchpad, and this script then only
+# ever toggles.
+#
+#   --class  matches the Wayland app_id. The AppImage's desktop entry declares
+#            StartupWMClass=grok-bot, which is what Electron normally reports,
+#            but the pattern is deliberately loose over case and separator in
+#            case it surfaces as "Grok Bot". Confirm the real value once the
+#            app has run:  hyprctl clients -j | jq -r '.[].class'
+#   --timeout 10  Electron cold-starts slower than a TUI.
+exec "$(dirname "$(readlink -f "$0")")/toggle-scratchpad-app" \
+  --special grokbot \
+  --class '^[Gg]rok[-_ ]?[Bb]ot$' \
+  --timeout 10 \
+  --label "Grok Bot" \
+  "$@" -- grok-bot

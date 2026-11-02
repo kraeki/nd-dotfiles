@@ -1,0 +1,125 @@
+#!/usr/bin/env bash
+#
+# toggle-scratchpad-app --special NAME --class REGEX [options]
+#                       [toggle|on|off|status] [-q] -- <launch command...>
+#
+# Show/hide a lazily-launched app on its own special workspace (scratchpad).
+# The single implementation behind toggle-herdr (F3) and toggle-grok-bot
+# (Super+`), in the same spirit as toggle-laptop-display being the one
+# implementation behind lid-close.sh / lid-open.sh.
+#
+# Why a script at all, rather than a bare
+# `hl.dsp.workspace.toggle_special("<name>")` like Slack (F1) and Obsidian
+# (F2): those two autostart in exec-once, so a window always exists to show.
+# These apps deliberately do not autostart, so the FIRST press has to launch
+# them -- and a window rule placing a window on a special workspace does NOT
+# make that workspace visible. So after launching we wait for the client to
+# appear and then toggle it into view ourselves, checking visibility first in
+# case Hyprland already showed it.
+#
+# Options:
+#   --special NAME     special workspace name (workspace is "special:NAME")
+#   --class REGEX      jq regex matching the window class; ANCHOR IT (^...$),
+#                      jq's test() is an unanchored search
+#   --strip-env PREFIX unset every env var with this prefix before launching
+#   --timeout SECONDS  how long to wait for the window to map (default 5)
+#   --label TEXT       name used in notifications (default: --special value)
+set -euo pipefail
+
+special=""
+class=""
+strip_prefix=""
+timeout=5
+label=""
+quiet=0
+action="toggle"
+launch=()
+
+while (($#)); do
+  case "$1" in
+    --special)   special="$2"; shift 2 ;;
+    --class)     class="$2"; shift 2 ;;
+    --strip-env) strip_prefix="$2"; shift 2 ;;
+    --timeout)   timeout="$2"; shift 2 ;;
+    --label)     label="$2"; shift 2 ;;
+    -q | --quiet) quiet=1; shift ;;
+    toggle | on | off | status) action="$1"; shift ;;
+    --) shift; launch=("$@"); break ;;
+    *) echo "toggle-scratchpad-app: unexpected argument '$1'" >&2; exit 1 ;;
+  esac
+done
+
+[[ -n $special && -n $class ]] || {
+  echo "usage: toggle-scratchpad-app --special NAME --class REGEX [opts] [toggle|on|off|status] [-q] -- <cmd...>" >&2
+  exit 1
+}
+((${#launch[@]})) || { echo "toggle-scratchpad-app: no launch command after --" >&2; exit 1; }
+label="${label:-$special}"
+
+notify() {
+  ((quiet)) && return 0
+  command -v dunstify >/dev/null 2>&1 &&
+    dunstify -a "$label" -r 91345 -t 1500 "$1" || true
+}
+
+# Is a window alive anywhere, INCLUDING on the hidden special workspace?
+client_exists() {
+  hyprctl clients -j 2>/dev/null |
+    jq -e --arg c "$class" 'any(.[]; .class | test($c))' >/dev/null 2>&1
+}
+
+# Is special:<name> currently shown on some monitor? `hyprctl monitors`
+# reports the special workspace a monitor displays in .specialWorkspace.
+is_visible() {
+  hyprctl monitors -j 2>/dev/null |
+    jq -e --arg w "special:$special" 'any(.[]; .specialWorkspace.name == $w)' >/dev/null 2>&1
+}
+
+show() { hyprctl dispatch "hl.dsp.workspace.toggle_special(\"$special\")" >/dev/null; }
+
+# Launch, then wait for the window rule to land it on the special workspace.
+#
+# --strip-env exists for herdr, which refuses to start inside itself ("nested
+# herdr is disabled by default") and exits, taking its terminal with it.
+# Hyprland's own environment is clean, so the keybind never hits that -- but
+# running this by hand from a shell that already lives in a herdr pane does,
+# and that is exactly how it gets tested.
+launch_and_wait() {
+  local strip=() name
+  if [[ -n $strip_prefix ]]; then
+    while IFS='=' read -r name _; do strip+=(-u "$name"); done \
+      < <(env | grep "^${strip_prefix}" || true)
+  fi
+
+  setsid env ${strip[@]+"${strip[@]}"} "${launch[@]}" >/dev/null 2>&1 &
+  for _ in $(seq 1 $((timeout * 10))); do
+    client_exists && return 0
+    sleep 0.1
+  done
+  return 1
+}
+
+case "$action" in
+  status)
+    if ! client_exists; then echo "not running"
+    elif is_visible; then echo "visible"
+    else echo "hidden"
+    fi
+    ;;
+  on)
+    client_exists || launch_and_wait || { notify "$label failed to start"; exit 1; }
+    is_visible || show
+    ;;
+  off)
+    is_visible && show
+    ;;
+  toggle)
+    if ! client_exists; then
+      notify "starting $label…"
+      launch_and_wait || { notify "$label failed to start"; exit 1; }
+      is_visible || show
+    else
+      show
+    fi
+    ;;
+esac

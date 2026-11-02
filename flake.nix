@@ -68,6 +68,7 @@
       waybar = pkgs.waybar;
       herdr = pkgs.callPackage ./pkgs/herdr.nix { };
       grok = pkgs.callPackage ./pkgs/grok.nix { };
+      grok-bot = pkgs.callPackage ./pkgs/grok-bot.nix { };
       tldraw-offline = pkgs.callPackage ./pkgs/tldraw-offline.nix { };
       wayscriber = inputs.wayscriber.packages.${system}.default.overrideAttrs (_: {
         doCheck = false;

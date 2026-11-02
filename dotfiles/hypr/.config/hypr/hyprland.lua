@@ -239,6 +239,7 @@ hl.bind("CTRL + SHIFT + Escape",        hl.dsp.exec_cmd(srcPath .. "/sysmonlaunc
                                             { float = true, size = { 800, 500 }, center = true }),
                                         { description = "Open system monitor" })
 
+
 -- Launchers / menus
 hl.bind(mainMod .. " + Space",     hl.dsp.exec_cmd("vicinae toggle"), { description = "Open app launcher (vicinae)" })
 hl.bind(mainMod .. " + Tab",       hl.dsp.exec_cmd("pkill -x rofi || " .. srcPath .. "/rofi-launcher.sh w"), { description = "Switch window (rofi)" })
@@ -563,6 +564,32 @@ hl.bind("F2", hl.dsp.workspace.toggle_special("obsidian"), { description = "Togg
 -- special:herdr) and then shows the workspace; later presses just toggle. The
 -- unnamed scratchpad F3 used to hold is still on Super+U / Super+Ctrl+U.
 hl.bind("F3", hl.dsp.exec_cmd(srcPath .. "/toggle-herdr"), { description = "Toggle herdr scratchpad" })
+-- Grok Bot (x.ai/bot), xAI's Electron desktop agent app -- NOT the `grok` CLI.
+-- Its own scratchpad on the key LEFT OF 1, so it joins Slack/Obsidian/herdr.
+-- Via toggle-grok-bot for the same reason F3 goes via toggle-herdr: Grok Bot
+-- is NOT autostarted in exec-once, so the first press must launch it, and a
+-- window rule placing a window on a special workspace does not show that
+-- workspace. Both scripts are now thin wrappers over toggle-scratchpad-app.
+--
+-- Bound TWICE, on `grave` AND `section`, because that one physical key has no
+-- single keysym across this machine's two layouts: `us` gives grave, `ch`
+-- gives section (xkb `ch` has no plain grave anywhere -- a backtick there is
+-- dead_grave+space on the `^` key). A grave-only bind is silently dead
+-- whenever CH is active. Same class of problem as the equal/minus binds moving
+-- with the layout.
+--
+-- Super+key rather than a BARE key: on the US layout that key IS the
+-- backtick, so a bare bind would make ` untypable -- fatal for markdown and
+-- shell. The bare F1/F2/F3 binds get away with it only because F-keys type
+-- nothing. To go bare anyway, drop the `mainMod .. " + "` from both.
+for _, key in ipairs({ "grave", "section" }) do
+    hl.bind(mainMod .. " + " .. key,
+        hl.dsp.exec_cmd(srcPath .. "/toggle-grok-bot"),
+        { description = "Toggle Grok Bot scratchpad" })
+    hl.bind(mainMod .. " + CTRL + " .. key,
+        hl.dsp.window.move({ workspace = "special:grokbot", follow = false }),
+        { description = "Move window to Grok Bot scratchpad" })
+end
 hl.bind(mainMod .. " + CTRL + U", hl.dsp.window.move({ workspace = "special", follow = false }), { description = "Move window to scratchpad" })
 hl.bind(mainMod .. " + U",        hl.dsp.workspace.toggle_special(), { description = "Toggle scratchpad" })
 -- Omarchy's scratchpad keys, on the SAME unnamed special workspace as Super+U
@@ -827,6 +854,7 @@ end)
 hl.workspace_rule({ workspace = "special:slack",    no_rounding = true, border_size = 0 })
 hl.workspace_rule({ workspace = "special:obsidian", no_rounding = true, border_size = 0 })
 hl.workspace_rule({ workspace = "special:herdr",    no_rounding = true, border_size = 0 })
+hl.workspace_rule({ workspace = "special:grokbot",  no_rounding = true, border_size = 0 })
 
 ----------------------------------------------------------------------
 -- WINDOW RULES
@@ -839,6 +867,10 @@ hl.window_rule({ name = "windowrule-2", match = { class = "^(obsidian)$" }, work
 -- trick as cliamp) -- that is what lets toggle-herdr find it and what pins it
 -- to its scratchpad.
 hl.window_rule({ name = "windowrule-herdr", match = { class = "^(herdr)$" }, workspace = "special:herdr" })
+-- Grok Bot. The class is confirmed `grok-bot` on a running instance (it also
+-- declares StartupWMClass=grok-bot), but the pattern stays loose over case and
+-- separator so an Electron rename to "Grok Bot" cannot silently unpin it.
+hl.window_rule({ name = "windowrule-grokbot", match = { class = "^([Gg]rok[-_ ]?[Bb]ot)$" }, workspace = "special:grokbot" })
 
 -- The speed test TUI (net-speedtest-ui), launched from the bar's network
 -- element. Another kitty under its own class, floated and centred because it

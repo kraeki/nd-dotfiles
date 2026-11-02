@@ -16,10 +16,10 @@
 
 stdenvNoCC.mkDerivation rec {
   pname = "grok";
-  version = "1.0.41";
+  version = "1.0.70";
   src = fetchurl {
     url = "https://x.ai/cli/grok-${version}-linux-x86_64.zst";
-    hash = "sha256-/RaWX7vOGyB+I0i4Njuu4o4gd6VX2rl3Yx0Rw0EhNSs=";
+    hash = "sha256-51G2FJSdhFhwI2ew4PMzkExYJYrT5DGnImsUpCt0+Ec=";
   };
   dontUnpack = true;
   nativeBuildInputs = [ zstd ];

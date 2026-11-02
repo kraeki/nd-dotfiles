@@ -5,6 +5,8 @@ let
   herdr = pkgs.callPackage ../../pkgs/herdr.nix { };
   grok = pkgs.callPackage ../../pkgs/grok.nix { };
   tldraw-offline = pkgs.callPackage ../../pkgs/tldraw-offline.nix { };
+  # Grok Bot, the Electron desktop app -- NOT the `grok` CLI above.
+  grok-bot = pkgs.callPackage ../../pkgs/grok-bot.nix { };
   # Claude Code off its own flake input (see the comment on `nixpkgs-claude`
   # in flake.nix), so a new Claude is one `nix flake lock --update-input
   # nixpkgs-claude` away instead of a whole-system nixpkgs bump.
@@ -103,6 +105,7 @@ in
     tealdeer         # Fast tldr client (provides the `tldr` command)
     herdr            # Terminal agent-multiplexer (prebuilt, see pkgs/)
     grok             # xAI's terminal coding agent (prebuilt, see pkgs/)
+    grok-bot         # xAI's desktop agent app, Super+` (prebuilt, see pkgs/)
 
     # Screen annotation (Wayland/Hyprland, layer-shell) — upstream flake.
     # doCheck disabled: wayscriber runs its Rust test suite at build time, and a
