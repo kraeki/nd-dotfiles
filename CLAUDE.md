@@ -1249,6 +1249,80 @@ The home printer is a **Brother DCP-9015CDW** colour laser MFP.
   already sharing this printer — a legacy print server. Printing straight at
   the printer over IPP is strictly better; ignore it.
 
+### Fingerprint authentication
+
+The sensor is the **Goodix MOC in the power button** (`27c6:609c`, claimed by
+libfprint's `goodixmoc` driver). It covers the lock screen, TTY login, `sudo`,
+`su` and polkit.
+
+**`services.fprintd.enable` is not set anywhere in this repo.** It arrives via
+`inputs.nixos-hardware.nixosModules.framework-amd-ai-300-series`, which sets it
+`mkDefault true` in `framework/13-inch/common/default.nix`. So fprintd and the
+`pam_fprintd` lines in `/etc/pam.d/{login,sudo,su,polkit-1,…}` were present
+long before anyone asked for fingerprint auth. Do not "add" fprintd here; check
+`nix eval .#nixosConfigurations.naptop.config.services.fprintd.enable` first.
+
+**It was a no-op purely because no finger was enrolled.** `pam_fprintd` gets
+`net.reactivated.Fprint.Error.NoEnrolledPrints`, reports "no fingers enrolled"
+and the stack falls straight through to the password — no hang, no error, which
+is exactly why this looked unconfigured. Enrol with `fprintd-enroll`, confirm
+with `fprintd-list $USER`, test with `fprintd-verify`. **Nothing below does
+anything until that is done.**
+
+**hyprlock had no PAM service of its own and was silently borrowing `su`'s.**
+With no `/etc/pam.d/hyprlock`, hyprlock does not fail — it logs `Pam module
+"/etc/pam.d/hyprlock" does not exist! Falling back to "/etc/pam.d/su"` (the
+string is in the binary) and authenticates against su's stack. That works, so
+the password unlock was never broken, but it inherited two entries a lock
+screen should not have:
+- `pam_rootok` — harmless, hyprlock runs as the user and never as root.
+- **`pam_faillock`** — so every lock-screen typo counted toward locking out
+  `su` itself. That is the real reason to stop borrowing it.
+
+`security.pam.services.hyprlock = { };` in `modules/nixos/desktop.nix` is the
+whole fix, and NixOS then builds the stack it already ships for `swaylock`:
+`pam_fprintd` sufficient → `pam_unix` sufficient → `pam_deny`. `fprintAuth`
+defaults to `services.fprintd.enable`, so the fingerprint line appears only on
+a machine with a reader and vanishes by itself on one without.
+
+**Not `programs.hyprlock.enable = true`.** It would create that PAM service
+*and* force `services.hypridle.enable = true`. There is no `hypridle.conf` in
+`dotfiles/hypr/`, so that starts an idle daemon this config has never
+configured. hyprlock stays an ordinary `systemPackages` entry.
+
+**The `auth { fingerprint { } }` block in `hyprlock.conf` defaults to off** and
+is now on. Validate any edit with
+`hyprlock --config <file> --display no-such-wl-display` — hyprlang errors
+print, then it aborts on "Couldn't connect to a wayland compositor" without
+ever locking the screen.
+
+**`placeholder_text` is deliberately NOT `<i>$FPRINTPROMPT</i>`**, the usual
+way to surface `ready_message` in the input box. `$FPRINTPROMPT` does exist in
+0.9.6 (the binary exports it next to `$FPRINTFAIL`; older wiki pages call it
+`$FPRINTMESSAGE`), but it is **empty whenever the fingerprint device is not
+ready** — and docked with the lid shut, that is the normal case. It would blank
+the input field exactly when the password is the only way in.
+
+**Two hardware limits that shape all of this:**
+- **Clamshell docking defeats it.** The sensor is in the laptop's power button,
+  so with the lid closed there is nothing to touch. The device still enumerates
+  over internal USB, so once a finger is enrolled `sudo` will print "Place your
+  finger on the fingerprint reader" and **wait** for a finger that cannot be
+  given, before falling back to the password after `max-tries`. If that grates,
+  `security.pam.services.sudo.fprintAuth = false;` keeps sudo password-only
+  while leaving the lock screen and login on fingerprint.
+- **The Magic Keyboard's Touch ID does not work.** The main keyboard here is an
+  Apple Magic Keyboard with Touch ID (`05ac:029a`), and **libfprint ships no
+  Apple driver at all** — grep the library for `05ac` or `apple` and it is
+  empty. Touch ID speaks Apple's own attested protocol to a secure enclave.
+  So fingerprint is a laptop-open-only feature, never a docked one.
+
+**Fingerprint login does not unlock gnome-keyring.** The keyring is unlocked by
+`pam_gnome_keyring` consuming the *password* you typed; authenticate by finger
+and there is no password to hand it, so 1Password and anything else behind the
+keyring will prompt separately. This bites TTY login, not hyprlock — by then
+the keyring is already open from the original login.
+
 ## Common Keybindings
 
 - **Super+Return**: Terminal (kitty)

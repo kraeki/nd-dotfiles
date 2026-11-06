@@ -156,5 +156,25 @@
       whisper-cpp  # offline transcription
       wtype        # Wayland keystroke injection
     ];
+
+    # hyprlock's own PAM stack. Without this there is NO /etc/pam.d/hyprlock,
+    # and hyprlock does not fail -- it logs `Pam module "/etc/pam.d/hyprlock"
+    # does not exist! Falling back to "/etc/pam.d/su"` and authenticates
+    # against **su's** stack instead. That works, which is why this went
+    # unnoticed, but it borrows two things su needs and a lock screen does not:
+    #   - `pam_rootok` (harmless here -- hyprlock runs as the user, never root)
+    #   - `pam_faillock`, so every lock-screen typo counts toward locking out
+    #     `su` itself. That is the real reason to stop borrowing it.
+    # An empty attrset is the whole fix: NixOS then builds the same stack it
+    # already ships for swaylock -- pam_fprintd sufficient, pam_unix
+    # sufficient, pam_deny. `fprintAuth` defaults to `services.fprintd.enable`,
+    # so the fingerprint line appears only on a machine that has a reader and
+    # disappears by itself on one that does not.
+    #
+    # NOT `programs.hyprlock.enable = true`, which would do this *and* force
+    # `services.hypridle.enable = true`. There is no hypridle.conf in
+    # dotfiles/hypr/, so that would start an idle daemon this config has never
+    # configured. hyprlock stays an ordinary systemPackages entry above.
+    security.pam.services.hyprlock = { };
   };
 }
