@@ -31,8 +31,10 @@ PanelWindow {
 
   anchors { bottom: true; right: true }
   // Ignore the bar's exclusive zone and place it ourselves, so the stack
-  // bottom lines up exactly with the window frames above the bar.
-  margins { bottom: Theme.barHeight + Theme.gap; right: Theme.gap }
+  // bottom lines up exactly with the window frames above the bar. Under a
+  // fullscreen window (only critical toasts get through) the bar is hidden, so
+  // the stack drops to the screen edge.
+  margins { bottom: (Notifs.fullscreen ? 0 : Theme.barHeight) + Theme.gap; right: Theme.gap }
   exclusionMode: ExclusionMode.Ignore
   WlrLayershell.layer: WlrLayer.Overlay
   WlrLayershell.namespace: "nd-notifications"

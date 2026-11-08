@@ -90,7 +90,6 @@ hl.on("hyprland.start", function()
     hl.exec_cmd("wl-paste --type text --watch cliphist store")                           -- clipboard: text
     hl.exec_cmd("wl-paste --type image --watch cliphist store")                          -- clipboard: image
     hl.exec_cmd(srcPath .. "/wallpaper.sh")                                              -- wallpaper daemon
-    hl.exec_cmd(srcPath .. "/batterynotify.sh")                                          -- battery notifications
     hl.exec_cmd("wayscriber --daemon")                                                   -- screen annotation daemon (Super+D toggles it)
     hl.exec_cmd("handy")                                                                 -- speech-to-text; runs in bg, F5 toggles recording
 end)
@@ -107,8 +106,11 @@ hl.exec_cmd("gsettings set org.gnome.desktop.interface color-scheme 'prefer-dark
 -- CONFIG  (general / input / decoration / misc / layouts …)
 ----------------------------------------------------------------------
 
-local accent   = { colors = { "rgba(ca9ee6ff)", "rgba(f2d5cfff)" }, angle = 45 }
-local inactive = { colors = { "rgba(b4befecc)", "rgba(6c7086cc)" }, angle = 45 }
+-- Catppuccin Mocha teal -> sky, the gradient hyprlock's input ring uses, so
+-- window frames carry the same accent as GTK, vicinae and the shell. (Was a
+-- mauve -> rosewater HyDE leftover.) Inactive is the shell's neutral frame.
+local accent   = { colors = { "rgba(94e2d5ee)", "rgba(89dcebee)" }, angle = 45 }
+local inactive = { colors = { "rgba(45475aaa)" }, angle = 45 }
 
 hl.config({
     general = {
@@ -231,6 +233,19 @@ hl.bind(mainMod .. " + Escape",       hl.dsp.exec_cmd("hyprlock"), { description
 -- `qs kill` rather than pkill: the nixpkgs wrapper renames the process (see
 -- the .waybar-wrapped note in CLAUDE.md), and qs knows its own instances.
 hl.bind("CTRL + ALT + W",             hl.dsp.exec_cmd("sh -c 'qs kill; exec qs'"), { description = "Restart the shell (quickshell)" })
+
+-- Shell panels and notifications (`qs ipc call ...`, see dotfiles/quickshell).
+-- Comma keys follow Omarchy: dismiss / history / do-not-disturb. The panel
+-- keys open on the focused monitor; press again (or Escape) to close.
+hl.bind(mainMod .. " + comma",          hl.dsp.exec_cmd("qs ipc call notifications dismissLatest"), { description = "Dismiss the newest notification" })
+hl.bind(mainMod .. " + SHIFT + comma",  hl.dsp.exec_cmd("qs ipc call panels toggle notifications"), { description = "Notification history" })
+hl.bind(mainMod .. " + CTRL + comma",   hl.dsp.exec_cmd("qs ipc call notifications toggleDnd"), { description = "Toggle do-not-disturb" })
+hl.bind(mainMod .. " + CTRL + C",       hl.dsp.exec_cmd("qs ipc call panels toggle calendar"), { description = "Calendar panel" })
+hl.bind(mainMod .. " + CTRL + N",       hl.dsp.exec_cmd("qs ipc call panels toggle network"), { description = "Network / Wi-Fi panel" })
+hl.bind(mainMod .. " + CTRL + B",       hl.dsp.exec_cmd("qs ipc call panels toggle bluetooth"), { description = "Bluetooth panel" })
+hl.bind(mainMod .. " + CTRL + A",       hl.dsp.exec_cmd("qs ipc call panels toggle audio"), { description = "Audio panel" })
+hl.bind(mainMod .. " + CTRL + M",       hl.dsp.exec_cmd("qs ipc call panels toggle media"), { description = "Media panel" })
+hl.bind(mainMod .. " + CTRL + P",       hl.dsp.exec_cmd("qs ipc call panels toggle power"), { description = "Battery / power panel" })
 
 -- Application shortcuts
 hl.bind(mainMod .. " + Return",         hl.dsp.exec_cmd(term), { description = "Open terminal" })

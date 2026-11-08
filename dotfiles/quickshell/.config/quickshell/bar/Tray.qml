@@ -11,8 +11,13 @@ Row {
 
   spacing: 4
 
+  readonly property var hidden: ["nm-applet", "blueman"]
+
   Repeater {
-    model: SystemTray.items.values.filter(i => i.status !== Status.Passive)
+    // nm-applet and blueman-applet keep running as the NetworkManager secret
+    // agent (802.1X / VPN prompts) and the BlueZ pairing agent, but their
+    // icons are hidden: the network and Bluetooth panels replace them.
+    model: SystemTray.items.values.filter(i => i.status !== Status.Passive && !root.hidden.includes(i.id))
 
     delegate: Item {
       id: entry

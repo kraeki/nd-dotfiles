@@ -3,14 +3,16 @@ import QtQuick.Layouts
 import Quickshell
 import Quickshell.Wayland
 import Quickshell.Services.UPower
+import Quickshell.Bluetooth
 import qs
 import qs.services
 import qs.panels
 
 // One bar per monitor, along the bottom edge (where waybar sat).
-//   left:   workspaces of this monitor
+//   left:   workspaces of this monitor · now playing         -> MediaPanel
 //   centre: cpu sparkline · memory · temperature          -> SysPanel
-//   right:  tray · notifications · power profile · stay awake · battery
+//   right:  tray · notifications · volume · bluetooth · power profile
+//           · stay awake · battery
 //           · network · clock                             -> their panels
 PanelWindow {
   id: bar
@@ -39,11 +41,31 @@ PanelWindow {
     color: Theme.alpha(Theme.bg, 0.9)
 
     // --- left ---------------------------------------------------------------
-    Workspaces {
+    Row {
       anchors.left: parent.left
       anchors.leftMargin: Theme.gap
       anchors.verticalCenter: parent.verticalCenter
-      screen: bar.screen
+      spacing: Theme.innerGap
+
+      Workspaces { screen: bar.screen }
+
+      // Now playing; hidden while no MPRIS player exists.
+      Pill {
+        id: mediaPill
+        visible: Media.player !== null
+        active: mediaPanel.open
+        icon: Media.player?.isPlaying ? "󰐊" : "󰏤"
+        iconColor: Media.player?.isPlaying ? Theme.accent : Theme.subtext0
+        text: {
+          const p = Media.player
+          if (!p) return ""
+          const t = [p.trackArtist, p.trackTitle].filter(x => x).join(" – ") || p.identity
+          return t.length > 42 ? t.slice(0, 41) + "…" : t
+        }
+        color: Media.player?.isPlaying ? Theme.text : Theme.subtext0
+        // Middle click plays/pauses without opening anything.
+        onClicked: mouse => mouse.button === Qt.MiddleButton ? Media.player.togglePlaying() : mediaPanel.toggle()
+      }
     }
 
     // --- centre -------------------------------------------------------------
@@ -71,6 +93,29 @@ PanelWindow {
       Tray {}
 
       Item { implicitWidth: 6 }
+
+      Pill {
+        id: audioPill
+        active: audioPanel.open
+        icon: Audio.icon(Audio.volume, Audio.muted)
+        iconColor: Audio.muted ? Theme.overlay0 : Theme.text
+        text: Audio.muted ? "" : Math.round(Audio.volume * 100) + "%"
+        // Wheel = volume, middle click = mute, click = panel.
+        onWheel: wheel => Audio.nudge(wheel.angleDelta.y > 0 ? 0.05 : -0.05)
+        onClicked: mouse => mouse.button === Qt.MiddleButton ? Audio.toggleMute(Audio.sink) : audioPanel.toggle()
+      }
+
+      Pill {
+        id: btPill
+        readonly property var adapter: Bluetooth.defaultAdapter
+        readonly property int connected: (adapter?.devices.values ?? []).filter(d => d.connected).length
+        visible: adapter !== null
+        active: btPanel.open
+        icon: !adapter?.enabled ? "󰂲" : connected > 0 ? "󰂱" : "󰂯"
+        iconColor: !adapter?.enabled ? Theme.overlay0 : connected > 0 ? Theme.accent : Theme.text
+        text: connected > 1 ? connected.toString() : ""
+        onClicked: btPanel.toggle()
+      }
 
       Pill {
         id: bellPill
@@ -156,12 +201,16 @@ PanelWindow {
     function onPanelRequested(name, screen) {
       if (screen !== bar.screen.name) return
       const panel = { sys: sysPanel, notifications: notifPanel, power: powerPanel,
-                      network: netPanel, calendar: calendar }[name]
+                      network: netPanel, calendar: calendar, audio: audioPanel,
+                      bluetooth: btPanel, media: mediaPanel }[name]
       if (panel) panel.toggle()
     }
   }
 
   NotificationPanel { id: notifPanel; target: bellPill }
+  AudioPanel { id: audioPanel; target: audioPill }
+  BluetoothPanel { id: btPanel; target: btPill }
+  MediaPanel { id: mediaPanel; target: mediaPill }
   PowerPanel { id: powerPanel; target: batteryPill }
   NetworkPanel { id: netPanel; target: netPill }
   CalendarPanel { id: calendar; target: clockPill }

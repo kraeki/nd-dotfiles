@@ -33,6 +33,16 @@ Rectangle {
     if (icon.includes("/")) return root.resolve(icon)
     return Quickshell.iconPath(icon, true)
   }
+  // Fallback glyph by sender, then by urgency.
+  readonly property string glyph: {
+    const app = (notification.appName || "").toLowerCase()
+    const known = {
+      "screenshot": "󰄀", "power": "󰂃", "net-speedtest": "󰓅", "context": "󰍹",
+      "notify-send": "󰂚", "spotify": "󰓇", "slack": "󰒱", "signal": "󰭹",
+    }
+    if (known[app]) return known[app]
+    return root.critical ? "󰀦" : "󰂚"
+  }
   readonly property var buttons: notification.actions.filter(a => a.identifier !== "default")
 
   // A toast is a card of its own; in the history panel it sits inside one,
@@ -77,16 +87,38 @@ Rectangle {
     width: root.width - 2 * Theme.pad
     spacing: 12
 
-    Image {
+    // The sender's image or icon, or -- when there is none, or the icon
+    // theme (Tela) has no such name, as with dialog-information -- a glyph
+    // on a tile, so every card keeps the same left edge.
+    Item {
       Layout.alignment: Qt.AlignTop
       Layout.preferredWidth: 40
       Layout.preferredHeight: 40
-      visible: root.iconSource !== "" && status !== Image.Error
-      source: root.iconSource
-      fillMode: Image.PreserveAspectFit
-      sourceSize.width: 80
-      sourceSize.height: 80
-      asynchronous: true
+
+      Image {
+        id: icon
+        anchors.fill: parent
+        visible: status === Image.Ready
+        source: root.iconSource
+        fillMode: Image.PreserveAspectFit
+        sourceSize.width: 80
+        sourceSize.height: 80
+        asynchronous: true
+      }
+
+      Rectangle {
+        anchors.fill: parent
+        visible: icon.status !== Image.Ready
+        radius: Theme.radius
+        color: root.critical ? Theme.alpha(Theme.red, 0.18) : Theme.surface0
+        Text {
+          anchors.centerIn: parent
+          text: root.glyph
+          color: root.critical ? Theme.red : Theme.accent
+          font.family: Theme.font
+          font.pixelSize: 20
+        }
+      }
     }
 
     ColumnLayout {

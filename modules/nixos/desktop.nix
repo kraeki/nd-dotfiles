@@ -111,6 +111,7 @@
       # The shell: bar, click panels, notification daemon and OSD in one
       # process, configured in dotfiles/quickshell. Replaced waybar + dunst.
       quickshell
+      glib              # gdbus: the shell's idle service watches logind (lock before sleep)
       wpaperd
       hyprlock
       kitty

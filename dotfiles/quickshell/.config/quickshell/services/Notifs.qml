@@ -3,6 +3,7 @@ pragma Singleton
 import QtQuick
 import Quickshell
 import Quickshell.Io
+import Quickshell.Hyprland
 import Quickshell.Services.Notifications
 
 // The notification daemon (replaces dunst). Every notification stays tracked
@@ -12,8 +13,23 @@ import Quickshell.Services.Notifications
 Singleton {
   id: root
 
+  // Survives restarts and logins: a file in Quickshell's state dir
+  // (~/.local/state/quickshell/by-shell/<id>/dnd), "1" or "0".
   property bool dnd: false
   readonly property int historyLimit: 30
+
+  // A fullscreen window on the focused monitor (a video, a presentation)
+  // silences toasts the same way DND does; they still go to the history.
+  readonly property bool fullscreen: Hyprland.focusedMonitor?.activeWorkspace?.hasFullscreen ?? false
+  readonly property bool quiet: root.dnd || root.fullscreen
+
+  FileView {
+    id: dndFile
+    path: Quickshell.statePath("dnd")
+    printErrors: false
+    onLoaded: root.dnd = text().trim() === "1"
+  }
+  onDndChanged: dndFile.setText(root.dnd ? "1" : "0")
 
   // Ids currently shown as a toast. A plain map plus a revision counter, not
   // a ListModel: a QObject held in a model role dangles once the server
@@ -47,9 +63,9 @@ Singleton {
       const tag = root.tagOf(n)
       if (tag !== "")
         root.list.filter(o => o !== n && root.tagOf(o) === tag).forEach(o => root.dismiss(o))
-      // DND still lets critical through: those are the ones that stick until
-      // read (the speed test result, a dying battery).
-      if (!root.dnd || n.urgency === NotificationUrgency.Critical)
+      // DND / fullscreen still let critical through: those are the ones that
+      // stick until read (the speed test result, a dying battery).
+      if (!root.quiet || n.urgency === NotificationUrgency.Critical)
         root.showPopup(n)
       const all = root.list
       if (all.length > root.historyLimit)

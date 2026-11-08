@@ -45,7 +45,8 @@ ShellRoot {
     }
   }
 
-  // Open a bar panel from a keybind: sys | notifications | power | network | calendar.
+  // Open a bar panel from a keybind: sys | notifications | power | network |
+  // calendar | audio | bluetooth | media.
   IpcHandler {
     target: "panels"
     function toggle(name: string): void {
@@ -53,7 +54,9 @@ ShellRoot {
     }
   }
 
-  // Touch the services at startup: Quickshell initialises them lazily, and
-  // UPower/the notification server/the tray need a moment to populate.
-  Component.onCompleted: [Notifs.dnd, Sys.cpu, Net.kind]
+  // Touch the services at startup: Quickshell initialises singletons lazily,
+  // UPower/the notification server/the tray need a moment to populate, and
+  // Idle and Battery are referenced by nothing visible -- untouched, they
+  // would never run at all.
+  Component.onCompleted: [Notifs.dnd, Sys.cpu, Net.kind, Idle.enabled, Battery.present]
 }

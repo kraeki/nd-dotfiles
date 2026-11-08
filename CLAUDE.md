@@ -905,8 +905,8 @@ so plain `qs` finds it). Look and patterns are borrowed from Omarchy 4's
 | `shell.qml` | root: one `Bar` per screen, `Toasts`, `Osd`, Hyprland refresh |
 | `Theme.qml` | Catppuccin Mocha / teal, sizes (mirrors `rounding`/`gaps_out`) |
 | `bar/` | `Bar` (bottom, `nd-bar` layer), `Workspaces`, `Tray`, `Pill` |
-| `panels/` | `Popup` (shared card) + Calendar, Network, Power, Sys, Notification panels |
-| `services/` | singletons: `Sys` (/proc, k10temp), `Net` (net-status + byte counters, speed test), `Notifs` (the daemon), `ShellState` |
+| `panels/` | `Popup` (shared card), `Slider` + Calendar, Network (+ Wi-Fi), Bluetooth, Audio, Media, Power, Sys, Notification panels |
+| `services/` | singletons: `Sys` (/proc, k10temp), `Net` (net-status + byte counters, speed test), `Notifs` (the daemon), `Audio` (PipeWire), `Media` (MPRIS), `Battery` (warnings), `Idle` (dim/lock/screen-off), `ShellState` |
 | `notifications/` | `Toasts` (bottom-right above the bar, stacking upwards; `nd-notifications`), `NotificationCard` |
 | `osd/Osd.qml` | volume / mic / brightness OSD (`nd-osd`) |
 
@@ -914,7 +914,11 @@ so plain `qs` finds it). Look and patterns are borrowed from Omarchy 4's
   qs`), `qs log` shows the log. Layer namespaces `nd-bar`,
   `nd-notifications`, `nd-osd` carry the blur rules in `hyprland.lua`.
 - **IPC** (`qs ipc call <target> <fn>`): `osd brightness|volume`,
-  `notifications toggleDnd|clear|dismissLatest|count`.
+  `notifications toggleDnd|clear|dismissLatest|count`, and
+  `panels toggle <sys|notifications|power|network|calendar|audio|bluetooth|media>`
+  (opens on the focused monitor). Keybinds: `Super+,` dismiss newest,
+  `Super+Shift+,` history, `Super+Ctrl+,` DND; `Super+Ctrl+` `C` calendar,
+  `N` network/Wi-Fi, `B` Bluetooth, `A` audio, `M` media, `P` power.
   `brightnesscontrol.sh` calls `osd brightness` after each change, because a
   sysfs backlight write raises no inotify event. Volume needs no ping: the OSD
   watches the PipeWire default sink/source, so a change from anywhere shows.
@@ -932,6 +936,39 @@ so plain `qs` finds it). Look and patterns are borrowed from Omarchy 4's
   A fixed `notify-send -r 9731` no longer works: per the spec the server
   issues ids, so an id it never handed out is just a new notification (dunst
   tolerated it, which is why the scripts used to do this).
+- **Idle** (`services/Idle.qml`) is the idle daemon this config never had:
+  4 min dims the laptop panel (`brightnessctl -s` / `-r`), 5 min runs
+  hyprlock, 5.5 min turns every display off (`hl.dsp.dpms({ action = "off" })`
+  — that dispatcher answers "ok" to *any* argument, so check
+  `hyprctl monitors -j` `.dpmsStatus` rather than the reply). The monitors
+  respect Wayland idle inhibitors, so a playing video holds them off, and
+  "stay awake" turns them off entirely — the toggle finally does something.
+  **Lock before sleep:** a `systemd-inhibit --mode=delay` process holds every
+  suspend until it is killed; on logind's `PrepareForSleep(true)` the shell
+  starts hyprlock and releases the inhibitor 800ms later, then re-takes it on
+  resume. logind is watched with `gdbus monitor --system` (`glib` in
+  desktop.nix): `dbus-monitor --system` needs root to become a monitor, gdbus
+  just subscribes to the broadcast. `loginctl lock-session` also locks.
+- **Do-not-disturb persists** in `Quickshell.statePath("dnd")`
+  (`~/.local/state/quickshell/by-shell/<id>/dnd`). A fullscreen window on the
+  focused monitor (`HyprlandWorkspace.hasFullscreen`) is treated like DND;
+  either way critical toasts still show, and the rest go to the history.
+- **Battery warnings** (`services/Battery.qml`) replaced `batterynotify.sh`,
+  a HyDE leftover reading thresholds from a `hyde.conf` that no longer
+  existed. 20% normal, 10% critical, once each per discharge, plus plug /
+  unplug notices, all with one stack tag. The hard floor is upower's
+  (`modules/nixos/power.nix`).
+- **nm-applet and blueman-applet still run** — with their tray icons hidden
+  (`bar/Tray.qml`). They are the NetworkManager secret agent (802.1X / VPN
+  password prompts) and the BlueZ pairing agent; the Wi-Fi list and the
+  Bluetooth panel do not replace those roles. The Wi-Fi list handles open,
+  saved and WPA-PSK networks (passphrase row); enterprise networks go
+  through nm-applet's dialog. Scanning (Wi-Fi and Bluetooth) runs only while
+  the panel is open.
+- **Media** ignores MPRIS players with no track: Chrome publishes one as soon
+  as it starts, which would otherwise park "Chrome" in the bar for good.
+  MPRIS does not push position updates; the panel polls `positionChanged()`
+  while open and playing.
 - **Notifications** stay tracked after their toast times out; the bell opens
   that history (dunst's `sticky_history`). Low 4s, normal 6s, critical until
   dismissed; a sender's own `-t` is honoured as given (capped at 30s). Left click = `default` action,
@@ -947,6 +984,14 @@ Traps hit while building it:
 - **A singleton called `State` is shadowed by QtQuick's own `State` type** —
   `State.stayAwake` silently read `undefined`. Hence `ShellState`. Avoid any
   QtQuick type name (`State`, `Timer`, `Text`, ...) for a singleton.
+- **Same for members: a function named `focus()` on an Item collides with
+  `Item.focus`** (a bool), and calling it throws "is not a function" — which
+  is how clicking a workspace silently did nothing. Hence `goTo()`.
+- **A singleton nobody references never runs.** `Idle` and `Battery` have
+  no UI; `shell.qml` touches them in `Component.onCompleted`. A new
+  background-only service needs adding there too.
+- **A signal handler is not a function**: `root.onPctChanged()` does not
+  work; put the body in a function and call that from the handler.
 - **QML's JS engine has no `String.prototype.matchAll`** (a TypeError at
   runtime, not a load error). Loop over `re.exec()`.
 - **Services initialise lazily.** UPower's `displayDevice`, Hyprland's
@@ -1183,6 +1228,8 @@ Catppuccin Mocha with teal accent, configurable via `nd.theme.flavor` / `nd.them
 - GTK theme: `catppuccin-mocha-teal-standard`
 - Icons: Colloid (teal), Numix Circle, Tela Circle Dracula
 - Cursor: Catppuccin Mocha Teal
+- Window borders (hyprland.lua): teal -> sky gradient, the same pair as hyprlock's
+  input ring; inactive is the shell's neutral frame colour (surface1)
 - Terminal: Ghostty with custom config (`dotfiles/ghostty/.config/ghostty/config`)
 - Qt: **Kvantum**, `catppuccin-mocha-teal` (`qt.platformTheme = "qt5ct"` +
   `qt.style = "kvantum"` in `modules/nixos/theme.nix`). Three traps here, all of
@@ -1209,13 +1256,14 @@ Catppuccin Mocha with teal accent, configurable via `nd.theme.flavor` / `nd.them
 
 ### Key Services and Daemons
 Auto-started in Hyprland (`exec-once`):
-- `qs` - The quickshell shell: bar, click panels, notification daemon, OSD
-  (see the Quickshell section)
+- `qs` - The quickshell shell: bar, click panels, notification daemon, OSD,
+  idle dim/lock/screen-off, battery warnings (see the Quickshell section)
 - `wpaperd` - Wallpaper daemon
 - `vicinae server` - Launcher
 - (monitors need no daemon — declarative `hl.monitor` rules + lid-switch binds; replaced kanshi)
 - `cliphist` - Clipboard history (with wl-paste)
-- `blueman-applet`, `nm-applet` - System tray
+- `blueman-applet`, `nm-applet` - Bluetooth pairing agent and NetworkManager
+  secret agent; tray icons hidden by the shell (its panels replace them)
 
 ### Power Management
 Uses **power-profiles-daemon**, as AMD and Framework recommend for these Ryzen
@@ -1424,6 +1472,10 @@ the keyring is already open from the original login.
   element to just measure and get a sticky notification; right-click the bell
   to toggle do-not-disturb; click the bolt/leaf/scale to cycle power profiles.
 - **Ctrl+Alt+W**: Restart the shell (`qs kill; qs`)
+- **Super+,** dismiss the newest notification · **Super+Shift+,** notification
+  history · **Super+Ctrl+,** do-not-disturb
+- **Super+Ctrl+C / N / B / A / M / P**: calendar / network & Wi-Fi /
+  Bluetooth / audio / media / battery & power panel (again or Escape closes)
 - **Super+M**: Toggle the active workspace between dwindle and scrolling layout
 - **Super+= / Super+-** (Shift optional, so `+` / `-` work): Step the focused
   monitor's scale up / down (`step-monitor-scale`)
