@@ -825,33 +825,24 @@ The result notification is `-u critical`, which is what makes it **stick**:
 the shell's toasts time out after 4–6s and only critical ones wait to be
 dismissed, so a result you waited ten seconds for would otherwise be gone.
 
-#### net-speedtest-ui (the kitty TUI)
+#### `--stream`, the contract the network panel reads
 
-No longer on the bar — the network panel runs the test itself (`--stream`,
-live gauges, history underneath) — but kept for a terminal, and as the
-reference for what `--stream` consumers need. It is `kitty --class net-speedtest -e
-net-speedtest-ui` through `launch-or-focus.sh` (the cliamp/herdr pattern), so a
-second click focuses the window instead of starting a second test against the
-same link; a window rule floats and centres it, and the class is in
-`terminalClasses` for universal copy/paste.
-
-This stands in for Omarchy's `shell/Ui/SpeedTestOverlay.qml` — 412 lines of
-`QtQuick.Shapes` arc dials. Porting that standalone is feasible (`quickshell`
-is in nixpkgs; strip `qs.Commons` I18n and `qs.Ui` Style to constants) but it
-means a whole UI toolkit for one overlay, and a terminal gets the history
-table for free.
+The panel (`services/Net.qml`) runs `net-speedtest --stream` and draws its
+gauges from the per-second `down <mbps>` / `up <mbps>` lines. A kitty TUI
+(`net-speedtest-ui`) did this before the shell existed; it was removed once
+the panel covered it.
 
 **`--stream` emits a final `result <down> <up>` line.** The per-second samples
 are raw; the logged figure is the average with slow start dropped. A consumer
 drawing live gauges needs both and should not have to re-derive the average
 from lines it already consumed.
 
-**Numbers in the TUI are formatted by awk, never by bash `printf %f`.** This
+**Format numbers in these scripts with awk, never bash `printf %f`.** This
 machine's locale is comma-decimal (de_CH), where `printf '%6.1f' 277.1` fails
-outright with `invalid number` — the gauge rows disappeared behind those
-errors. gawk writes a period regardless of locale, so formatting there removes
-the dependency rather than papering over it with `LC_NUMERIC` (which a set
-`LC_ALL` would override anyway).
+outright with `invalid number` — the TUI's gauge rows once disappeared behind
+those errors. gawk writes a period regardless of locale, so formatting there
+removes the dependency rather than papering over it with `LC_NUMERIC` (which a
+set `LC_ALL` would override anyway).
 
 #### Two traps that cost real debugging time here
 

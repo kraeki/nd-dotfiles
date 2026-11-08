@@ -451,7 +451,7 @@ end
 -- Omarchy keys this off its window tags; this config has none, so match on the
 -- class instead. "cliamp" and "herdr" are listed because both are kitty windows
 -- flying under their own class (Super+A submap Z, and the F3 scratchpad).
-local terminalClasses = { "kitty", "ghostty", "foot", "alacritty", "wezterm", "xterm", "cliamp", "herdr", "net-speedtest" }
+local terminalClasses = { "kitty", "ghostty", "foot", "alacritty", "wezterm", "xterm", "cliamp", "herdr" }
 
 local function activeWindowIsTerminal()
     local ok, window = pcall(hl.get_active_window)
@@ -919,13 +919,6 @@ hl.window_rule({ name = "windowrule-herdr", match = { class = "^(herdr)$" }, wor
 -- declares StartupWMClass=grok-bot), but the pattern stays loose over case and
 -- separator so an Electron rename to "Grok Bot" cannot silently unpin it.
 hl.window_rule({ name = "windowrule-grokbot", match = { class = "^([Gg]rok[-_ ]?[Bb]ot)$" }, workspace = "special:grokbot" })
-
--- The speed test TUI (net-speedtest-ui), launched from the bar's network
--- element. Another kitty under its own class, floated and centred because it
--- is a read-and-dismiss panel, not a window to tile work around -- the
--- closest this config gets to Omarchy's Quickshell overlay.
-hl.window_rule({ name = "windowrule-speedtest", match = { class = "^(net-speedtest)$" },
-                 float = true, size = { 760, 420 }, center = true })
 
 -- Google Meet always on workspace 2.
 --
