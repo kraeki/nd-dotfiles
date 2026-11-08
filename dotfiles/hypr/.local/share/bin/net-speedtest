@@ -252,17 +252,19 @@ conn_name() {
     awk -F'\t' '$1 == "wifi" { print $2 } $1 == "ethernet" { print "Ethernet" }'
 }
 
-# A fixed replace-id so the "running" notification turns into the result in
-# place instead of stacking two. Clicking the bar is otherwise silent for the
-# whole run (2 x --seconds plus the fast.com round trip), which reads as a
-# dead element.
-notify_id=9731
+# A stack tag so the "running" notification turns into the result in place
+# instead of stacking two. Clicking the bar is otherwise silent for the whole
+# run (2 x --seconds plus the fast.com round trip), which reads as a dead
+# element. A tag, not a fixed `-r 9731`: per the spec a server hands out its
+# own ids, so replacing an id it never issued just adds a notification (dunst
+# tolerated it, the quickshell daemon does not).
+notify_tag=net-speedtest
 # -u critical is what makes the result stay put: the shell's toasts time out
 # after a few seconds and only critical ones wait to be dismissed, so a plain
 # notification was gone long before you looked at a test you waited for. The
 # "measuring" one stays normal, since it is replaced by the result anyway.
 notify_at() {
-  notify-send -a net-speedtest -r "$notify_id" -i network-wireless \
+  notify-send -a net-speedtest -h "string:x-canonical-private-synchronous:$notify_tag" -i network-wireless \
     ${3:+-u "$3"} "$1" "$2"
 }
 

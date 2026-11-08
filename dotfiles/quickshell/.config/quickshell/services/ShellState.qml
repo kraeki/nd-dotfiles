@@ -9,12 +9,22 @@ Singleton {
   id: root
 
   property bool stayAwake: false
+
+  // `qs ipc call panels toggle <name>` -> the bar on that monitor opens it.
+  // A signal rather than an IpcHandler per bar: one target may only have
+  // one handler, and there is a bar per screen.
+  signal panelRequested(string name, string screen)
   onStayAwakeChanged: persist.stayAwake = root.stayAwake
 
   PersistentProperties {
     id: persist
     reloadableId: "nd-state"
     property bool stayAwake: false
+
+  // `qs ipc call panels toggle <name>` -> the bar on that monitor opens it.
+  // A signal rather than an IpcHandler per bar: one target may only have
+  // one handler, and there is a bar per screen.
+  signal panelRequested(string name, string screen)
     onLoaded: root.stayAwake = persist.stayAwake
   }
 }

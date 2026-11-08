@@ -8,11 +8,12 @@ import qs.services
 Popup {
   id: root
 
+  fixedWidth: Theme.cardWidth
   onOpenChanged: Sys.detailed = open
 
   function heat(t) { return t >= 85 ? Theme.red : t >= 65 ? Theme.peach : t >= 45 ? Theme.yellow : Theme.accent }
 
-  Label { heading: true; text: Sys.model || "CPU"; Layout.maximumWidth: 360; elide: Text.ElideRight }
+  Label { heading: true; text: Sys.model || "CPU"; Layout.fillWidth: true; elide: Text.ElideRight }
 
   GridLayout {
     columns: 2

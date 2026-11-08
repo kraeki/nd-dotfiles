@@ -9,6 +9,7 @@ import qs.services
 Popup {
   id: root
 
+  fixedWidth: Theme.cardWidth
   onOpenChanged: if (open) Net.refreshDetails()
 
   readonly property var d: Net.details
@@ -16,12 +17,12 @@ Popup {
   function fmt(v) { return v >= 100 ? Math.round(v).toString() : v.toFixed(1) }
 
   ColumnLayout {
-    Layout.preferredWidth: 340
+    Layout.fillWidth: true
     spacing: 4
 
     RowLayout {
       spacing: 10
-      Label { text: Net.icon; font.pixelSize: 26; color: Net.kind === "disconnected" ? Theme.red : Theme.accent }
+      Label { text: Net.icon; font.pixelSize: Theme.fontDisplay; color: Net.kind === "disconnected" ? Theme.red : Theme.accent }
       ColumnLayout {
         spacing: 0
         Label {
@@ -102,7 +103,7 @@ Popup {
     Label { dim: true; text: "Previous runs on this access point" }
     Repeater {
       model: Net.history
-      Label { required property string modelData; text: modelData; font.pixelSize: Theme.fontSmall + 1 }
+      Label { required property string modelData; text: modelData; font.pixelSize: Theme.fontSmall }
     }
   }
 }

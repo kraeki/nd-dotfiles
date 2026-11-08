@@ -7,6 +7,6 @@ Text {
 
   color: dim ? Theme.subtext0 : Theme.text
   font.family: Theme.font
-  font.pixelSize: heading ? 16 : dim ? Theme.fontSmall + 1 : Theme.fontSize
+  font.pixelSize: heading ? Theme.fontHeading : dim ? Theme.fontSmall : Theme.fontSize
   font.bold: heading
 }

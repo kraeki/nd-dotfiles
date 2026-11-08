@@ -13,10 +13,14 @@ PopupWindow {
 
   required property Item target
   property bool open: false
-  property int pad: 16
+  property int pad: Theme.pad
+  // 0 = as wide as the content; panels of running text use Theme.cardWidth.
+  property int fixedWidth: 0
   default property alias content: body.data
 
-  readonly property int lift: 6   // gap between the bar and the card
+  // Bar to card = bar to window frame, so an open panel ends on the same line
+  // as the windows above the bar.
+  readonly property int lift: Theme.gap
 
   function toggle() { root.open = !root.open }
 
@@ -52,13 +56,13 @@ PopupWindow {
   Rectangle {
     id: card
     width: root.width
-    implicitWidth: body.implicitWidth + 2 * root.pad
+    implicitWidth: root.fixedWidth > 0 ? root.fixedWidth : body.implicitWidth + 2 * root.pad
     implicitHeight: body.implicitHeight + 2 * root.pad
     height: implicitHeight
     radius: Theme.radius
-    color: Theme.base
-    border.width: 2
-    border.color: Theme.accent
+    color: Theme.bg
+    border.width: Theme.borderWidth
+    border.color: Theme.border
 
     opacity: root.open ? 1 : 0
     y: root.open ? 0 : 8

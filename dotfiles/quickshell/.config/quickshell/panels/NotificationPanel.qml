@@ -9,8 +9,10 @@ import qs.notifications
 Popup {
   id: root
 
+  fixedWidth: Theme.cardWidth
+
   RowLayout {
-    Layout.preferredWidth: 380
+    Layout.fillWidth: true
     Label { heading: true; text: "Notifications"; Layout.fillWidth: true }
     Button { text: Notifs.dnd ? "󰂛 DND" : "󰂚 DND"; checked: Notifs.dnd; onClicked: Notifs.dnd = !Notifs.dnd }
     Button { text: "Clear"; visible: Notifs.list.length > 0; onClicked: Notifs.clearAll() }
@@ -33,9 +35,10 @@ Popup {
     Column {
       id: column
       width: parent.width
-      spacing: 6
+      spacing: Theme.innerGap
       Repeater {
-        model: Notifs.list.slice().reverse()
+        // Newest first. ScriptModel keeps existing cards when the list changes.
+        model: ScriptModel { values: Notifs.list.slice().reverse() }
         NotificationCard {
           required property var modelData
           notification: modelData

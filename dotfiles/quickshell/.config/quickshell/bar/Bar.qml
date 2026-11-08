@@ -36,7 +36,7 @@ PanelWindow {
   Rectangle {
     id: content
     anchors.fill: parent
-    color: Theme.alpha(Theme.crust, 0.88)
+    color: Theme.alpha(Theme.bg, 0.9)
 
     // --- left ---------------------------------------------------------------
     Workspaces {
@@ -148,6 +148,16 @@ PanelWindow {
           }
         }
       }
+    }
+  }
+
+  Connections {
+    target: ShellState
+    function onPanelRequested(name, screen) {
+      if (screen !== bar.screen.name) return
+      const panel = { sys: sysPanel, notifications: notifPanel, power: powerPanel,
+                      network: netPanel, calendar: calendar }[name]
+      if (panel) panel.toggle()
     }
   }
 

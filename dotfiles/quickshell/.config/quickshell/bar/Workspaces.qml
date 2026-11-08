@@ -14,9 +14,11 @@ Item {
     .filter(w => w.id > 0 && w.monitor && root.monitor && w.monitor.name === root.monitor.name)
     .sort((a, b) => a.id - b.id)
 
-  // Lua-config Hyprland: dispatch takes an hl.dsp expression; the legacy
-  // "workspace N" text form is rejected (the reason waybar needed a pin).
-  function focus(ws) {
+  // Not named focus(): that is Item.focus, a bool, and the call then throws
+  // "is not a function". Lua-config Hyprland: dispatch takes an hl.dsp
+  // expression; the legacy "workspace N" text form is rejected (the reason
+  // waybar needed a pin).
+  function goTo(ws) {
     Hyprland.dispatch(`hl.dsp.focus({workspace="${ws}"})`)
   }
 
@@ -68,7 +70,7 @@ Item {
           anchors.fill: parent
           hoverEnabled: true
           cursorShape: Qt.PointingHandCursor
-          onClicked: root.focus(ws.modelData.id)
+          onClicked: root.goTo(ws.modelData.id)
         }
       }
     }
@@ -82,7 +84,7 @@ Item {
     onWheel: event => {
       root.wheelAcc += event.angleDelta.y
       while (Math.abs(root.wheelAcc) >= 120) {
-        root.focus(root.wheelAcc > 0 ? "-1" : "+1")
+        root.goTo(root.wheelAcc > 0 ? "-1" : "+1")
         root.wheelAcc -= Math.sign(root.wheelAcc) * 120
       }
     }

@@ -10,6 +10,7 @@
 import QtQuick
 import Quickshell
 import Quickshell.Hyprland
+import Quickshell.Io
 import qs.bar
 import qs.notifications
 import qs.osd
@@ -41,6 +42,14 @@ ShellRoot {
         Hyprland.refreshMonitors()
         Hyprland.refreshWorkspaces()
       }
+    }
+  }
+
+  // Open a bar panel from a keybind: sys | notifications | power | network | calendar.
+  IpcHandler {
+    target: "panels"
+    function toggle(name: string): void {
+      ShellState.panelRequested(name, Hyprland.focusedMonitor?.name ?? "")
     }
   }
 

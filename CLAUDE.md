@@ -907,7 +907,7 @@ so plain `qs` finds it). Look and patterns are borrowed from Omarchy 4's
 | `bar/` | `Bar` (bottom, `nd-bar` layer), `Workspaces`, `Tray`, `Pill` |
 | `panels/` | `Popup` (shared card) + Calendar, Network, Power, Sys, Notification panels |
 | `services/` | singletons: `Sys` (/proc, k10temp), `Net` (net-status + byte counters, speed test), `Notifs` (the daemon), `ShellState` |
-| `notifications/` | `Toasts` (top-right, `nd-notifications`), `NotificationCard` |
+| `notifications/` | `Toasts` (bottom-right above the bar, stacking upwards; `nd-notifications`), `NotificationCard` |
 | `osd/Osd.qml` | volume / mic / brightness OSD (`nd-osd`) |
 
 - **Edit and save — it hot-reloads.** `Ctrl+Alt+W` restarts it (`qs kill;
@@ -920,9 +920,21 @@ so plain `qs` finds it). Look and patterns are borrowed from Omarchy 4's
   watches the PipeWire default sink/source, so a change from anywhere shows.
   The first 1.5s after start and after a default-device switch are ignored —
   that is the node binding, not someone touching the volume.
+- **Toasts sit bottom-right and stack upwards**: newest next to the bar,
+  older ones pushed up. Right and bottom edges are flush with the window
+  frames (gaps_out from screen edge and bar), so they line up with the
+  panels. The repeaters use `ScriptModel`, not a bare JS array: an array
+  model rebuilds every delegate on each change, restarting all the timeout
+  timers and add-animations.
+- **Stack tags, not fixed replace ids.** A script that updates its
+  notification in place sends `-h string:x-canonical-private-synchronous:<tag>`
+  (or `x-dunst-stack-tag`); the daemon dismisses the older one with that tag.
+  A fixed `notify-send -r 9731` no longer works: per the spec the server
+  issues ids, so an id it never handed out is just a new notification (dunst
+  tolerated it, which is why the scripts used to do this).
 - **Notifications** stay tracked after their toast times out; the bell opens
   that history (dunst's `sticky_history`). Low 4s, normal 6s, critical until
-  dismissed, a longer `-t` honoured up to 30s. Left click = `default` action,
+  dismissed; a sender's own `-t` is honoured as given (capped at 30s). Left click = `default` action,
   right/middle = dismiss. DND (right-click the bell) still lets critical
   through.
 - **Dispatch from QML** is `Hyprland.dispatch('hl.dsp.focus({workspace="3"})')`
@@ -1279,22 +1291,22 @@ The home printer is a **Brother DCP-9015CDW** colour laser MFP.
   1.x broadcast protocol, is deprecated upstream, and on a DNS-SD network its
   only effect is duplicate queues that appear and vanish. CUPS enumerates
   DNS-SD printers client-side by itself.
-- **`ensure-printers` must be ordered after `avahi-daemon`.** `lpadmin -m
-  everywhere` *queries* the printer, and nixpkgs orders the generated unit
-  after `cups.service` only. A Bonjour-named queue resolves through nss-mdns,
-  i.e. through **Avahi** — not through systemd-resolved, whose mDNS is off
-  here — so without that ordering the first run after a switch dies on
-  `lpadmin: Unable to connect to BRW90CDB653E86D.local:631: Name or service
-  not known` while `getent hosts` answers correctly seconds later. This cost a
-  debugging round; the error names DNS and looks like the printer is absent.
-- The unit also races the Wi-Fi association at boot (`NetworkManager-wait-online`
-  is disabled here, so `network-online.target` settles nothing), so
-  `printing.nix` adds a bounded retry — 5 tries, 30s apart, then it stops
-  rather than polling forever. Giving up is inert: the queue persists in
-  `/var/lib/cups` once created, so a failure away from home costs only a red
-  unit. After a failed run clear it with `systemctl reset-failed
-  ensure-printers` before starting it again, or systemd refuses with
-  `start-limit-hit`.
+- **Provisioning runs in `cups.service`'s `ExecStartPost`, not its own unit.**
+  nixpkgs 26.11 dropped `ensure-printers.service`; an old override of it then
+  produces an empty unit ("Service has no ExecStart=") that fails
+  `nixos-rebuild switch`. `printing.nix` therefore tunes `cups.service`:
+  - **ordered after `avahi-daemon`**, because `lpadmin -m everywhere`
+    *queries* the printer and a Bonjour-named queue resolves through nss-mdns,
+    i.e. through **Avahi** — not systemd-resolved, whose mDNS is off here.
+    Without it lpadmin dies on `Unable to connect to
+    BRW90CDB653E86D.local:631: Name or service not known` while `getent hosts`
+    answers correctly seconds later; the error names DNS and looks like the
+    printer is absent.
+  - **`set +e` prepended to the hook.** It runs under `set -e`, so an
+    unreachable printer — every time the laptop is away from home — would fail
+    cups.service itself and take all printing down. Best-effort is inert: the
+    queue persists in `/var/lib/cups` once created, and every (socket-activated)
+    cups start retries it. Check a run with `journalctl -u cups`.
 - **Scanning is the one place a vendor blob is unavoidable.** The DCP speaks
   neither eSCL/AirScan (`/eSCL/ScannerCapabilities` 404s) nor WSD (5357
   closed), so `sane-airscan` — the driverless path that would mirror IPP

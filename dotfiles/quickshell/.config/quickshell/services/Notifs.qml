@@ -40,6 +40,13 @@ Singleton {
 
     onNotification: n => {
       n.tracked = true
+      // Stack tags: a newer notification with the same tag replaces the
+      // older one. This is how scripts "update in place" -- a fixed
+      // `notify-send -r 9731` cannot, since the server issues the ids and an
+      // unknown replace id is simply a new notification.
+      const tag = root.tagOf(n)
+      if (tag !== "")
+        root.list.filter(o => o !== n && root.tagOf(o) === tag).forEach(o => root.dismiss(o))
       // DND still lets critical through: those are the ones that stick until
       // read (the speed test result, a dying battery).
       if (!root.dnd || n.urgency === NotificationUrgency.Critical)
@@ -48,6 +55,11 @@ Singleton {
       if (all.length > root.historyLimit)
         all.slice(0, all.length - root.historyLimit).forEach(old => old.dismiss())
     }
+  }
+
+  function tagOf(n) {
+    const h = n.hints || {}
+    return String(h["x-canonical-private-synchronous"] || h["x-dunst-stack-tag"] || "")
   }
 
   function showPopup(n) {
@@ -80,14 +92,14 @@ Singleton {
     root.popupRevision++
   }
 
-  // Low 4s, normal 6s, critical until dismissed; a sender asking for longer
-  // gets it, capped at 30s. expireTimeout is the raw D-Bus value: ms, with
-  // -1/0 meaning "server's call" (`notify-send -t 3000` arrives as 3000).
+  // Critical stays until dismissed. Otherwise the sender's own timeout wins
+  // (a 1.5s "moved to workspace" status should not linger for 6s), capped at
+  // 30s; without one, low gets 4s and normal 6s. expireTimeout is the raw
+  // D-Bus value: ms, -1/0 meaning "server's call" (`-t 3000` arrives as 3000).
   function timeoutMs(n) {
     if (n.urgency === NotificationUrgency.Critical) return 0
-    const base = n.urgency === NotificationUrgency.Low ? 4000 : 6000
-    const asked = n.expireTimeout > 0 ? n.expireTimeout : 0
-    return Math.min(30000, Math.max(base, asked))
+    if (n.expireTimeout > 0) return Math.min(30000, n.expireTimeout)
+    return n.urgency === NotificationUrgency.Low ? 4000 : 6000
   }
 
   IpcHandler {

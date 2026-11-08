@@ -58,7 +58,7 @@ label="${label:-$special}"
 
 notify() {
   ((quiet)) && return 0
-  notify-send -a "$label" -r 91345 -t 1500 "$1" 2>/dev/null || true
+  notify-send -a "$label" -h "string:x-canonical-private-synchronous:scratchpad" -t 1500 "$1" 2>/dev/null || true
 }
 
 # Is a window alive anywhere, INCLUDING on the hidden special workspace?

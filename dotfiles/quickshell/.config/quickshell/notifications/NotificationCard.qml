@@ -35,11 +35,13 @@ Rectangle {
   }
   readonly property var buttons: notification.actions.filter(a => a.identifier !== "default")
 
-  implicitHeight: content.implicitHeight + 24
+  // A toast is a card of its own; in the history panel it sits inside one,
+  // so it drops the frame and is set off by a tint instead (no card-in-card).
+  implicitHeight: content.implicitHeight + 2 * Theme.pad
   radius: Theme.radius
-  color: Theme.alpha(Theme.base, root.popup ? 0.97 : 1)
-  border.width: 2
-  border.color: root.critical ? Theme.red : root.popup ? Theme.accent : Theme.surface1
+  color: root.popup ? Theme.alpha(Theme.bg, 0.97) : Theme.alpha(Theme.surface0, 0.5)
+  border.width: root.popup || root.critical ? Theme.borderWidth : 0
+  border.color: root.critical ? Theme.red : Theme.border
 
   HoverHandler { id: hover }
 
@@ -70,9 +72,9 @@ Rectangle {
 
   RowLayout {
     id: content
-    x: 12
-    y: 12
-    width: root.width - 24
+    x: Theme.pad
+    y: Theme.pad
+    width: root.width - 2 * Theme.pad
     spacing: 12
 
     Image {
@@ -133,8 +135,10 @@ Rectangle {
         text: root.notification.body
         color: Theme.subtext0
         font.family: Theme.font
-        font.pixelSize: Theme.fontSmall + 1
-        wrapMode: Text.Wrap
+        font.pixelSize: Theme.fontSmall
+        // Paths and URLs have no spaces; break them anywhere rather than
+        // at the last "/" with half the line empty.
+        wrapMode: Text.WrapAtWordBoundaryOrAnywhere
         maximumLineCount: root.popup ? 5 : 3
         elide: Text.ElideRight
         textFormat: Text.StyledText
@@ -160,7 +164,7 @@ Rectangle {
               text: parent.modelData.text
               color: Theme.text
               font.family: Theme.font
-              font.pixelSize: Theme.fontSmall + 1
+              font.pixelSize: Theme.fontSmall
               font.bold: true
             }
             MouseArea {

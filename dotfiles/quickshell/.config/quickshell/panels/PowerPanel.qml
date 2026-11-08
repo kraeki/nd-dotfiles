@@ -9,6 +9,8 @@ import qs.services
 Popup {
   id: root
 
+  fixedWidth: Theme.cardWidth
+
   readonly property UPowerDevice bat: UPower.displayDevice
   readonly property bool charging: bat.state === UPowerDeviceState.Charging
   readonly property bool discharging: bat.state === UPowerDeviceState.Discharging
@@ -32,13 +34,13 @@ Popup {
   }
 
   ColumnLayout {
-    Layout.preferredWidth: 320
+    Layout.fillWidth: true
     visible: root.bat.isLaptopBattery
     spacing: 6
 
     RowLayout {
       spacing: 10
-      Label { text: Math.round(root.bat.percentage * 100) + "%"; font.pixelSize: 28; font.bold: true; color: Theme.accent }
+      Label { text: Math.round(root.bat.percentage * 100) + "%"; font.pixelSize: Theme.fontDisplay; font.bold: true; color: Theme.accent }
       Label { text: root.stateText; dim: true; wrapMode: Text.WordWrap; Layout.fillWidth: true }
     }
     Meter {

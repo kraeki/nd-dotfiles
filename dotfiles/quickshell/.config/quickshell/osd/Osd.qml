@@ -111,22 +111,22 @@ Scope {
       implicitWidth: 320
       implicitHeight: 64
       radius: Theme.radius
-      color: Theme.alpha(Theme.base, 0.97)
-      border.width: 2
-      border.color: root.muted ? Theme.surface2 : Theme.accent
+      color: Theme.alpha(Theme.bg, 0.97)
+      border.width: Theme.borderWidth
+      border.color: Theme.border
       opacity: root.shown ? 1 : 0
       Behavior on opacity { NumberAnimation { duration: root.shown ? 120 : 220 } }
 
       RowLayout {
         anchors.fill: parent
-        anchors.margins: 14
+        anchors.margins: Theme.pad
         spacing: 12
 
         Text {
           text: root.icon
           color: root.muted ? Theme.overlay0 : Theme.accent
           font.family: Theme.font
-          font.pixelSize: 24
+          font.pixelSize: Theme.fontDisplay
           Layout.preferredWidth: 28
           horizontalAlignment: Text.AlignHCenter
         }
