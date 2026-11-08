@@ -17,6 +17,16 @@ let
     inherit (pkgs.stdenv.hostPlatform) system;
     config.allowUnfree = true;
   };
+  # nixpkgs' cargo setup hook now exports AWS_LC_SYS_USE_SYSTEM=1 and
+  # SYSTEM_DEPS_BUILD_INTERNAL=never for every Rust build, so -sys crates must
+  # find their C library in buildInputs instead of building a vendored copy.
+  # codex 0.167.0 in nixos-unstable (2026-11-07) predates that and panics in
+  # aws-lc-sys, then zstd-sys. These four are exactly what nixpkgs master
+  # added; drop this once unstable carries them (`grep aws-lc` in
+  # pkgs/by-name/co/codex/package.nix). Until then codex builds locally.
+  codex = pkgs.codex.overrideAttrs (old: {
+    buildInputs = old.buildInputs ++ (with pkgs; [ aws-lc oniguruma sqlite zstd ]);
+  });
 in
 {
   imports = [ ../../modules/home ];
@@ -59,7 +69,7 @@ in
     seahorse
     slack
     claudePkgs.claude-code   # fresher than the system pin, see the let above
-    codex
+    codex                    # aws-lc fix, see the let above
     gemini-cli
 
     # Runs AppImages on NixOS (patches loader paths, provides FHS + FUSE).
@@ -81,7 +91,6 @@ in
     # Entertainment
     steam
     protontricks
-    mplayer
     cliamp           # Winamp 2.x-styled terminal music player + lo-fi radio
                      # (cliamp.stream). Super+A then Z; "?" for its keys.
 
