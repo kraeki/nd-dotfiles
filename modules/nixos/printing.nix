@@ -69,36 +69,28 @@
       environment.systemPackages = [ pkgs.system-config-printer ];
 
       # `hardware.printers.ensurePrinters` with `model = "everywhere"` runs
-      # `lpadmin -m everywhere`, which QUERIES the printer over IPP — so the
-      # generated ensure-printers unit only succeeds while the printer is
-      # actually reachable, and nixpkgs orders it after nothing but
-      # cups.service. Two things have to be true first:
+      # `lpadmin -m everywhere`, which QUERIES the printer over IPP — so
+      # provisioning only succeeds while the printer is actually reachable.
+      # Since nixpkgs 26.11 that runs as cups.service's ExecStartPost (the
+      # standalone ensure-printers unit is gone; overriding it now just creates
+      # an empty unit that systemd refuses — "Service has no ExecStart=" — and
+      # fails the switch). Two consequences to handle:
       #
-      #   1. avahi-daemon must be serving. A queue addressed by its Bonjour
-      #      name resolves through nss-mdns, i.e. through Avahi — NOT through
-      #      systemd-resolved, whose mDNS is deliberately off above. Without
-      #      this ordering the first run after a switch dies on "lpadmin:
-      #      Unable to connect to <name>.local:631: Name or service not known"
-      #      while the very same name resolves fine seconds later.
-      #   2. The network must be up. On a laptop that is a race the unit
-      #      routinely loses at boot — NetworkManager-wait-online is off here,
-      #      so network-online.target is nearly free and settles nothing.
-      #
-      # Ordering fixes (1) outright; (2) is what the bounded retry is for:
-      # five tries over ~2.5 minutes, then it gives up rather than turning
-      # into a background poller. Giving up is cheap — the queue lives in
-      # /var/lib/cups once created, so a failure away from home costs nothing
-      # but a red unit.
-      systemd.services.ensure-printers =
+      #   1. avahi-daemon must be serving first. A queue addressed by its
+      #      Bonjour name resolves through nss-mdns, i.e. through Avahi — NOT
+      #      through systemd-resolved, whose mDNS is deliberately off above.
+      #      Without the ordering lpadmin dies on "Unable to connect to
+      #      <name>.local:631: Name or service not known".
+      #   2. The hook runs under `set -e`, so an unreachable printer (i.e. any
+      #      time the laptop is away from home) would fail cups.service itself
+      #      and take ALL printing down. `set +e` makes provisioning
+      #      best-effort: the queue lives in /var/lib/cups once created, so a
+      #      skipped run costs nothing, and the next cups start retries it.
+      systemd.services.cups =
         lib.mkIf (config.hardware.printers.ensurePrinters != [ ]) {
-          after = [ "network-online.target" "avahi-daemon.service" ];
-          wants = [ "network-online.target" "avahi-daemon.service" ];
-          startLimitIntervalSec = 300;
-          startLimitBurst = 5;
-          serviceConfig = {
-            Restart = "on-failure";
-            RestartSec = 30;
-          };
+          after = [ "avahi-daemon.service" ];
+          wants = [ "avahi-daemon.service" ];
+          postStart = lib.mkBefore "set +e";
         };
     })
 

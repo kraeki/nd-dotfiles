@@ -110,9 +110,10 @@
   # Addressed by its Bonjour name, not 192.168.13.123: the IP is a DHCP lease
   # and would silently break the queue the day the router hands out another.
   # Resolving this needs Avahi up (nd.printing) -- and note `lpadmin -m
-  # everywhere` QUERIES the printer, so the ensure-printers unit fails while
-  # away from home or with the printer asleep. That failure is inert: the queue
-  # persists in /var/lib/cups once created.
+  # everywhere` QUERIES the printer, so provisioning (cups.service's post-start
+  # hook) fails while away from home or with the printer asleep. nd.printing
+  # makes that non-fatal, and it is inert: the queue persists in /var/lib/cups
+  # once created.
   hardware.printers = {
     ensureDefaultPrinter = "brother";
     ensurePrinters = [{
