@@ -1,4 +1,4 @@
-# Binary cache for this repo's custom builds (waybar override, Handy,
+# Binary cache for this repo's custom builds (Handy,
 # wayscriber, ...), filled by CI (.github/workflows/build.yml).
 #
 # Setup (once): create a cache at https://app.cachix.org, then set

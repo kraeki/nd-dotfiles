@@ -11,7 +11,7 @@
 #   2. the VoiceFlow repo launcher (works before a NixOS rebuild)
 #   3. legacy inline whisper-only dictation (ultimate fallback)
 #
-# Requires (for the fallback): whisper-cpp, pw-record, wtype, dunst.
+# Requires (for the fallback): whisper-cpp, pw-record, wtype, a notification daemon.
 
 VOICEFLOW_REPO="$HOME/work/walky/voiceflow"
 

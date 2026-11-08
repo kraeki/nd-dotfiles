@@ -107,7 +107,7 @@ per its `disko.nix` (after the reinstall flip above).
 
 Every push runs `.github/workflows/build.yml`: the `check` job evaluates the
 whole naptop system (a broken module fails in CI, not on the laptop), and the
-`cache` job builds the custom packages — the waybar override, Handy
+`cache` job builds the custom packages — Handy
 (~1,100 Rust crates), wayscriber, herdr, tldraw-offline — and pushes them to
 Cachix so `nixos-rebuild` downloads instead of compiling.
 
@@ -123,7 +123,7 @@ The cache job stays skipped until one-time setup:
    nd.cache.publicKey = "<name>.cachix.org-1:...";   # from the cache page
    ```
 
-The packages are also directly buildable: `nix build .#waybar`, `.#handy`, …
+The packages are also directly buildable: `nix build .#handy`, `.#herdr`, …
 
 ## Extending
 

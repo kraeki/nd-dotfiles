@@ -27,5 +27,5 @@ Everything nd sets sits behind `nd.*` options — toggle instead of patching.
 See the commented examples in `hosts/mymachine/default.nix` and `home.nix`,
 and the module sources under
 [modules/](https://github.com/kraeki/nd-dotfiles/tree/main/modules) for the
-full list. The Hyprland/waybar/etc. dotfiles are nd's stow tree — clone
+full list. The Hyprland/quickshell/etc. dotfiles are nd's stow tree — clone
 nd-dotfiles and run `make` for those, or bring your own.

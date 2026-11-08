@@ -60,8 +60,7 @@ profile=$("$self_dir/nd-contexts" profile "$name")
 
 notify() {
   ((quiet)) && return 0
-  command -v dunstify >/dev/null 2>&1 &&
-    dunstify -a "context" -r 91346 -t 1500 "$1" || true
+  notify-send -a "context" -r 91346 -t 1500 "$1" 2>/dev/null || true
 }
 
 [[ -n $profile ]] || {

@@ -11,14 +11,13 @@ This is a personal dotfiles repository for a NixOS system with Hyprland window m
 The repository has two main configuration approaches:
 
 ### 1. Stow-Managed Dotfiles
-Application-specific dotfiles organized in the `dotfiles/` subdirectory (e.g., `dotfiles/hypr/`, `dotfiles/nvim/`, `dotfiles/waybar/`). Each directory contains the `.config/` hierarchy that gets symlinked to `$HOME` via Stow.
+Application-specific dotfiles organized in the `dotfiles/` subdirectory (e.g., `dotfiles/hypr/`, `dotfiles/nvim/`, `dotfiles/quickshell/`). Each directory contains the `.config/` hierarchy that gets symlinked to `$HOME` via Stow.
 
 ### 2. NixOS Configuration (flake at repository root)
 - `flake.nix` - Flake exporting `nixosModules.default`, `homeManagerModules.default`, and host "naptop"
 - `modules/nixos/` - The system profile behind `nd.*` options (core, desktop, theme, networking, power, docker, gaming, locale, cache, branding). Import + `nd.enable = true` turns everything on; individual modules can be toggled (`nd.gaming.enable = false;`)
 - `branding/` - The ndos wordmark (`logo.txt` master + generated `logo.svg`, `ascii-to-svg`, `mk-wallpaper`, README). Surfaces: Plymouth boot splash (rendered at build time), fastfetch greeting (`dotfiles/fastfetch/`), hyprlock label, branded wallpaper
-- `overlays/` - Shared overlays (waybar Hyprland-IPC pin), used by both the desktop module and the flake's `packages` output
-- `.github/workflows/build.yml` - CI: evaluates the full system per push; builds + pushes the custom packages (`.#waybar`, `.#handy`, ...) to Cachix once `CACHIX_CACHE`/`CACHIX_AUTH_TOKEN` are configured
+- `.github/workflows/build.yml` - CI: evaluates the full system per push; builds + pushes the custom packages (`.#handy`, `.#herdr`, ...) to Cachix once `CACHIX_CACHE`/`CACHIX_AUTH_TOKEN` are configured
 - `modules/home/` - Home-manager profile behind `nd.*` options (shell, chrome)
 - `hosts/naptop/` - This machine only: hardware config, boot/kernel quirks (Framework 13 Ryzen AI 300), ROCm ollama, its user account, `system.stateVersion`, and `disko.nix` (declarative disk layout for nixos-anywhere reinstalls — inert on the running system, see its mode notes)
 - `hosts/naptop-old/` - The previous Framework 16 (Ryzen 7040), preserved buildable (hostname stays "naptop"; runs without uwsm, mirroring the archived config)
@@ -309,18 +308,13 @@ the `wl-paste --watch` daemons in `exec-once` still feed it.
   the `cap_sys_admin` wrapper the kms backend needs — a bare systemPackages
   entry is not enough.
 - `notification-send.sh` — the slice of `omarchy-notification-send` these need
-  (thumbnail + clickable action), backed by `dunstify`. `dunstify -A` blocks
-  while the notification is up, so the click handler is detached; without an
-  action it is fire-and-forget.
+  (thumbnail + clickable action), on plain `notify-send`. `notify-send -A`
+  blocks while the notification is up and prints the clicked action's name,
+  so the click handler is detached; without an action it is fire-and-forget.
 
-For the click to do anything, `dunstrc` needs `mouse_left_click = do_action`.
-Dunst's default puts `do_action` on **middle** click and gives left click
-`context`, which opens a dmenu — so left-clicking a screenshot notification
-just dismissed it. (`context` could never have worked here anyway: `dmenu` and
-`browser` pointed at `/usr/bin/…`, which does not exist on NixOS. Both now
-point at `/run/current-system/sw/bin/`.) Note dunst will not restart while
-another instance holds the `org.freedesktop.Notifications` bus name — the
-second one exits silently — so apply config changes with `dunstctl reload`.
+Left-clicking a toast runs its `default` action (here: open in swappy); the
+quickshell daemon maps left click to that, and right/middle click to dismiss —
+the mapping dunst needed `mouse_left_click = do_action` for.
 
 While the picker is open, `hyprland.lua` registers keyboard binds scoped to
 slurp's layer surface (`Enter` window, `Ctrl+Enter` fullscreen, `Tab`/arrows to
@@ -473,7 +467,7 @@ every monitor.** No single mechanism covers that, so `hyprland.lua` uses three:
   **only on the monitor whose workspace changed**.
 - `hl.on("workspace.active", hideScratchpads)` — sweeps the remaining monitors
   and covers the paths that never reach the `Super+1..0` binds: the 4-finger
-  swipe, waybar clicks, `focus({workspace="previous"})`.
+  swipe, bar clicks, `focus({workspace="previous"})`.
 - the `Super+1..0` binds call `hideScratchpads()` themselves, because switching
   to a workspace **already displayed on the other monitor** only moves monitor
   focus: nothing becomes active, so no event fires and the native option has
@@ -752,16 +746,14 @@ drag Hyprland, the kernel and Mesa forward with it.
 
 The bar had **no network module at all** (cpu/memory/battery/clock/tray/
 power-profiles only). This fills that gap with Omarchy 4's `omarchy.network`
-bar widget and its speedtest panel, reimplemented for waybar. Three scripts in
-`dotfiles/hypr/.local/share/bin/`:
+bar widget and its speedtest panel. Two scripts in
+`dotfiles/hypr/.local/share/bin/` do the work; the quickshell bar
+(`services/Net.qml`, `panels/NetworkPanel.qml`) is only their face:
 
 - `net-speedtest [down|up|both] [--seconds N] [--stream|--json|--notify]` —
   the measurement, ported from `omarchy-network-speedtest`.
 - `net-status [--verbose]` — connection facts, ported from
   `omarchy-network-status`. Tab-separated so awk can field-split it.
-- `net-waybar` — the waybar JSON module (`custom/network`, 3s interval,
-  `on-click` runs the speed test). Local, not ported: upstream's equivalent is
-  Quickshell QML.
 
 **How the speed test measures, and why not `speedtest-cli`:** fast.com's API
 hands out a few Netflix OCA endpoints; the script saturates them with 8
@@ -784,16 +776,13 @@ Upload needs a body to push, hence `dd if=/dev/zero | curl --data-binary @-`.
 with the average, so streaming printed nothing at all. Whichever way this is
 written, the live output and the result cannot share stdout.
 
-**Throughput needs state across invocations.** waybar runs the module as a
-fresh process every interval, so `net-waybar` deltas the byte counters against
-`$XDG_RUNTIME_DIR/net-waybar.state`. tmpfs and per-session is the point: a
-stale counter cannot outlive the link it described. A changed interface, a
-counter that went backwards (link bounced, `/sys` reset) or no previous sample
-all report 0 rather than a bogus spike. The 3s interval **is** the averaging
-window — a longer one smears bursts out.
-
-**Everything reaching waybar is pango-escaped.** waybar parses module text as
-markup, so a guest network called `Bar & Grill` would blank the module.
+**Throughput is a delta of the kernel's byte counters**, sampled every 3s by
+`services/Net.qml` for the interface carrying the default route. A changed
+interface, a counter that went backwards (link bounced, `/sys` reset) or no
+previous sample all report 0 rather than a bogus spike. The 3s interval **is**
+the averaging window — a longer one smears bursts out. (Under waybar this
+needed a state file in `$XDG_RUNTIME_DIR`, because each poll was a fresh
+process; the shell keeps it in memory.)
 
 **`iw` buys exactly one field, not the whole radio detail.**
 `nmcli -t -f ACTIVE,FREQ,RATE,SIGNAL,CHAN,BSSID dev wifi list` already carries
@@ -827,20 +816,20 @@ signal, bitrate, gateway, both pings — beside the numbers. `--no-log` opts out
 **BSSID is the key that makes this useful.** An SSID can span a dozen APs in a
 dozen buildings; a BSSID is one radio in one place, so "is it slow *here*" is a
 question the log can actually answer. `net-speedtest --history [--here]
-[--limit N]` prints it, `--here` filtering to the AP you are on, and the bar
-tooltip folds in last-and-best for that AP so the numbers outlive the
+[--limit N]` prints it, `--here` filtering to the AP you are on, and the
+network panel lists the last runs on that AP so the numbers outlive the
 notification. JSONL rather than one JSON array so appending never reads,
 parses and rewrites the file.
 
 The result notification is `-u critical`, which is what makes it **stick**:
-`dunstrc` gives normal urgency `timeout = 5` and only `urgency_critical`
-`timeout = 0`, so a result you waited ten seconds for used to vanish in five.
+the shell's toasts time out after 4–6s and only critical ones wait to be
+dismissed, so a result you waited ten seconds for would otherwise be gone.
 
 #### net-speedtest-ui (the kitty TUI)
 
-Left-clicking the bar element opens `net-speedtest-ui` — live gauges while the
-test runs, then the previous runs on this AP underneath. Right-click keeps the
-quick measure-and-notify path. It is `kitty --class net-speedtest -e
+No longer on the bar — the network panel runs the test itself (`--stream`,
+live gauges, history underneath) — but kept for a terminal, and as the
+reference for what `--stream` consumers need. It is `kitty --class net-speedtest -e
 net-speedtest-ui` through `launch-or-focus.sh` (the cliamp/herdr pattern), so a
 second click focuses the window instead of starting a second test against the
 same link; a window rule floats and centres it, and the class is in
@@ -875,33 +864,107 @@ Both occurrences are fixed by reading to EOF with a seen-flag instead of
 `exit`, and by capturing `jq | head -n` into a variable with `|| true` rather
 than streaming it. Watch for this shape in any new script here.
 
-**`pkill -x waybar` can never match on NixOS.** nixpkgs wraps waybar with
-`makeBinaryWrapper`, which moves the real binary to `bin/.waybar-wrapped` and
-leaves a *compiled* wrapper as `bin/waybar` — so the running process's `comm`
-is `.waybar-wrapped`, `pgrep -x waybar` finds nothing, and `pkill -x waybar`
-**exits 1 while looking like it worked**. A `pkill -USR2 -x waybar` "reload"
-therefore does nothing at all, and following it with a fresh `waybar` leaves
-two bars stacked. Reload with `pkill -USR2 -f waybar`, or kill the pid from
-`pgrep -a waybar` (no `-x`).
+**`pkill -x <name>` can never match a wrapped binary on NixOS.** nixpkgs
+wraps many programs with `makeBinaryWrapper`, which moves the real binary to
+`bin/.<name>-wrapped` and leaves a *compiled* wrapper as `bin/<name>` — so the
+running process's `comm` is `.<name>-wrapped`, `pgrep -x <name>` finds
+nothing, and `pkill -x <name>` **exits 1 while looking like it worked**. This
+is what made the old `pkill -USR2 -x waybar` "reload" a no-op that left two
+bars stacked. Quickshell is wrapped too (`.quickshell-wrapped`), which is why
+its restart bind uses `qs kill` — it finds its own instances — instead of
+pkill. And never `pkill -f` a name that appears in your own command line: it
+matches, and kills, the shell running it.
 
 Note the wrapper is a **binary**, not a shell script, so `file` says ELF and a
 `#!` test does not detect it. The reliable check is whether
 `bin/.<name>-wrapped` exists next to the binary. Of what this config drives:
-**waybar, dunst, kitty and vicinae are wrapped**; **rofi, slurp, hyprpicker and
-wpaperd are not** — which is why the existing `pkill -x rofi` on `Super+Tab`
+**quickshell, kitty and vicinae are wrapped** (so were waybar and dunst);
+**rofi, slurp, hyprpicker and wpaperd are not** — which is why the existing `pkill -x rofi` on `Super+Tab`
 and `pkill -x slurp` in `capture-region.sh` are correct and must not be
 "fixed".
 
-**Why the whole Quickshell shell was not adopted.** Omarchy 4 "Quattro"
-replaced waybar, walker, mako, swayosd, hyprlock, hypridle, swaybg and
-polkit-gnome with one long-running Quickshell process. `quickshell` *is* in
-nixpkgs (0.3.0), so the engine is no obstacle — but the shell is 136 QML files
-across 17 plugin groups calling **82 distinct `omarchy-*` CLI commands**. It is
-a frontend over Omarchy's entire bash CLI (pacman, Arch paths,
-`omarchy-theme-set`), and adopting it means replacing every piece of this
-config's desktop at once. Revisit as its own project, not as a side-effect of
-wanting a speed test. Note its bar also takes **command modules that emit
-waybar JSON**, so `net-waybar` would survive such a migration unchanged.
+**The whole Omarchy shell was not adopted — a lean one was written instead.**
+Omarchy 4 "Quattro" replaced waybar, walker, mako, swayosd, hyprlock,
+hypridle, swaybg and polkit-gnome with one Quickshell process, but it is ~180
+QML files (~50k lines) over **82 distinct `omarchy-*` CLI commands** —
+a frontend over Omarchy's whole bash CLI (pacman, Arch paths,
+`omarchy-theme-set`). Adopting it means shimming half of Omarchy. See the
+Quickshell section below for what was built instead.
+
+### Quickshell shell (bar, panels, notifications, OSD)
+
+One `qs` process (autostarted in `hyprland.lua`, package in
+`modules/nixos/desktop.nix`) replaced **waybar, dunst and the
+`notify-send -r 91190` volume/brightness toasts**. Config:
+`dotfiles/quickshell/.config/quickshell/` (stowed to `~/.config/quickshell`,
+so plain `qs` finds it). Look and patterns are borrowed from Omarchy 4's
+`shell/` (MIT); the code is our own and small (~22 files).
+
+| path | what |
+|---|---|
+| `shell.qml` | root: one `Bar` per screen, `Toasts`, `Osd`, Hyprland refresh |
+| `Theme.qml` | Catppuccin Mocha / teal, sizes (mirrors `rounding`/`gaps_out`) |
+| `bar/` | `Bar` (bottom, `nd-bar` layer), `Workspaces`, `Tray`, `Pill` |
+| `panels/` | `Popup` (shared card) + Calendar, Network, Power, Sys, Notification panels |
+| `services/` | singletons: `Sys` (/proc, k10temp), `Net` (net-status + byte counters, speed test), `Notifs` (the daemon), `ShellState` |
+| `notifications/` | `Toasts` (top-right, `nd-notifications`), `NotificationCard` |
+| `osd/Osd.qml` | volume / mic / brightness OSD (`nd-osd`) |
+
+- **Edit and save — it hot-reloads.** `Ctrl+Alt+W` restarts it (`qs kill;
+  qs`), `qs log` shows the log. Layer namespaces `nd-bar`,
+  `nd-notifications`, `nd-osd` carry the blur rules in `hyprland.lua`.
+- **IPC** (`qs ipc call <target> <fn>`): `osd brightness|volume`,
+  `notifications toggleDnd|clear|dismissLatest|count`.
+  `brightnesscontrol.sh` calls `osd brightness` after each change, because a
+  sysfs backlight write raises no inotify event. Volume needs no ping: the OSD
+  watches the PipeWire default sink/source, so a change from anywhere shows.
+  The first 1.5s after start and after a default-device switch are ignored —
+  that is the node binding, not someone touching the volume.
+- **Notifications** stay tracked after their toast times out; the bell opens
+  that history (dunst's `sticky_history`). Low 4s, normal 6s, critical until
+  dismissed, a longer `-t` honoured up to 30s. Left click = `default` action,
+  right/middle = dismiss. DND (right-click the bell) still lets critical
+  through.
+- **Dispatch from QML** is `Hyprland.dispatch('hl.dsp.focus({workspace="3"})')`
+  — the same Lua expression `hyprctl dispatch` takes; the legacy text form is
+  rejected (which is why waybar needed a source pin). Quickshell credits each
+  workspace switch to the focused monitor only, so `shell.qml` calls
+  `refreshMonitors()`/`refreshWorkspaces()` on the workspace raw events.
+
+Traps hit while building it:
+- **A singleton called `State` is shadowed by QtQuick's own `State` type** —
+  `State.stayAwake` silently read `undefined`. Hence `ShellState`. Avoid any
+  QtQuick type name (`State`, `Timer`, `Text`, ...) for a singleton.
+- **QML's JS engine has no `String.prototype.matchAll`** (a TypeError at
+  runtime, not a load error). Loop over `re.exec()`.
+- **Services initialise lazily.** UPower's `displayDevice`, Hyprland's
+  workspace list and the tray are empty until first touched, then fill in
+  asynchronously. `shell.qml` touches them at startup.
+- **Units:** `UPowerDevice.percentage` is 0–1; `Notification.expireTimeout`
+  is the raw D-Bus value in **ms** (`-1` = server's choice). `notify-send -i
+  name` arrives as `image://icon/<name>`, which Qt cannot resolve against the
+  icon theme — unwrap it through `Quickshell.iconPath(name, true)`.
+- **Font Awesome glyphs live in the BMP private-use area** (`U+F0E7` bolt,
+  `U+F06C` leaf, `U+F24E` scale, `U+F2C9` thermometer) and tools happily drop
+  them on the floor; they are written as `""` escapes on purpose. The
+  Material Design `󰂚`-style glyphs (supplementary plane) survive fine.
+- **Tray menus need `//@ pragma UseQApplication`** at the top of
+  `shell.qml`, or `item.display()` logs "Cannot display PlatformMenuEntry"
+  and does nothing. As Qt widget menus they follow Kvantum.
+- **Only one notification daemon can own `org.freedesktop.Notifications`.**
+  A second server logs "Could not register" and retries when the name frees.
+  Stop the old one by the PID `busctl --user status
+  org.freedesktop.Notifications` reports.
+
+**Checking a change while the screen is locked** (grim then only sees
+hyprlock): render inside quickshell. Put a throwaway `zz-shot.qml` next to
+`shell.qml` (so `qs.*` imports resolve), instantiate `Bar`/a panel/`Osd`
+there, and `grabToImage` an **item** — `bar.content` (the bar's background
+rectangle), a panel's `contentItem.children[0]`. `window.contentItem` itself
+refuses ("item has no QML engine"). Open panels **one at a time**: each
+`HyprlandFocusGrab` clears the previous one, which closes that popup before
+it can be grabbed. Run it with `qs -p .../zz-shot.qml`, and delete the file
+afterwards — the folder is stowed.
 
 ### Workspace Layouts
 `Super+M` runs `toggle-workspace-layout [toggle|dwindle|scrolling|status] [-q]`
@@ -1134,8 +1197,8 @@ Catppuccin Mocha with teal accent, configurable via `nd.theme.flavor` / `nd.them
 
 ### Key Services and Daemons
 Auto-started in Hyprland (`exec-once`):
-- `waybar` - System bar
-- `dunst` - Notifications
+- `qs` - The quickshell shell: bar, click panels, notification daemon, OSD
+  (see the Quickshell section)
 - `wpaperd` - Wallpaper daemon
 - `vicinae server` - Launcher
 - (monitors need no daemon — declarative `hl.monitor` rules + lid-switch binds; replaced kanshi)
@@ -1341,10 +1404,14 @@ the keyring is already open from the original login.
 - **Super+Print**: Color picker (hyprpicker)
 - **Super+Ctrl+Print**: Extract text from a region (OCR)
 - **Super+Shift+Print**: Decode a QR code from a region
-- **Click the bar's network element**: Open the speed test TUI — live gauges,
-  then every previous run on this access point. **Right-click** just measures
-  and posts a sticky notification. Hover for SSID, band, signal, bitrate,
-  IP/gateway, router and internet ping, totals, and last/best here.
+- **Bar clicks** (quickshell): workspaces focus; the CPU/memory element, the
+  bell, the battery, the network element and the clock each open a panel
+  (Escape or a click elsewhere closes it). Network panel: SSID, band, signal,
+  bitrate, IP/gateway, pings, a **Run** button for the speed test with live
+  gauges, and the last runs on this access point. **Right-click** the network
+  element to just measure and get a sticky notification; right-click the bell
+  to toggle do-not-disturb; click the bolt/leaf/scale to cycle power profiles.
+- **Ctrl+Alt+W**: Restart the shell (`qs kill; qs`)
 - **Super+M**: Toggle the active workspace between dwindle and scrolling layout
 - **Super+= / Super+-** (Shift optional, so `+` / `-` work): Step the focused
   monitor's scale up / down (`step-monitor-scale`)

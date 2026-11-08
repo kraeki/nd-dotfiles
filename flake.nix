@@ -37,7 +37,6 @@
       system = "x86_64-linux";
       pkgs = import nixpkgs {
         inherit system;
-        overlays = [ (import ./overlays/waybar.nix) ];
         # Mirrors the `nixpkgs.config.allowUnfree` set on every host below.
         # Needed by the `packages` output: grok is a proprietary binary that
         # declares `license = unfree`, so `nix build .#grok` (and CI) would
@@ -49,8 +48,6 @@
     # `nd.enable = true`, and toggle individual `nd.*` options.
     nixosModules.default = import ./modules/nixos;
     homeManagerModules.default = import ./modules/home;
-
-    overlays.waybar = import ./overlays/waybar.nix;
 
     # Scaffold for consumers: `nix flake init -t github:kraeki/nd-dotfiles`
     # gives a flake that imports the nd modules — their machines, their repo,
@@ -65,7 +62,6 @@
     # modules/nixos/cache.nix). These are the exact derivations the system
     # and home configs use — wayscriber/handy mirror users/kraeki/home.nix.
     packages.${system} = {
-      waybar = pkgs.waybar;
       herdr = pkgs.callPackage ./pkgs/herdr.nix { };
       grok = pkgs.callPackage ./pkgs/grok.nix { };
       grok-bot = pkgs.callPackage ./pkgs/grok-bot.nix { };

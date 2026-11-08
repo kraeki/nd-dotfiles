@@ -1,14 +1,15 @@
 #!/usr/bin/env bash
 # The slice of Omarchy 4's omarchy-notification-send that the capture scripts
 # rely on: an optional thumbnail and a clickable action that runs a command.
-# Backed by dunstify, since dunst is this setup's notification daemon.
+# Plain libnotify notify-send; the daemon is the quickshell shell.
 #
 # Usage: notification-send.sh [-u urgency] [-t ms] [-g glyph] [--image PATH]
 #                             [--exec CMD [ARGS...]] SUMMARY [BODY]
 #
-# --exec swallows the rest of the argv, so it has to come last. dunstify blocks
-# for as long as the notification is on screen once -A is passed, so the click
-# handler is detached; without --exec this is fire-and-forget.
+# --exec swallows the rest of the argv, so it has to come last. notify-send -A
+# blocks until the notification is clicked or closed (printing the action
+# name), so the click handler is detached; without --exec this is
+# fire-and-forget.
 
 urgency=normal
 timeout=5000
@@ -40,10 +41,10 @@ if (( ${#exec_cmd[@]} )); then
   [[ ${exec_cmd[1]:-} == "--" ]] && exec_cmd=("${exec_cmd[0]}" "${exec_cmd[@]:2}")
 
   (
-    [[ $(dunstify "${opts[@]}" -A "default,Open" "$summary" "$body" 2>/dev/null) == default ]] &&
+    [[ $(notify-send "${opts[@]}" -A "default=Open" "$summary" "$body" 2>/dev/null) == default ]] &&
       exec "${exec_cmd[@]}"
   ) >/dev/null 2>&1 &
   disown
 else
-  dunstify "${opts[@]}" "$summary" "$body" >/dev/null 2>&1
+  notify-send "${opts[@]}" "$summary" "$body" >/dev/null 2>&1
 fi

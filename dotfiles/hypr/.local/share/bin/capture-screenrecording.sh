@@ -158,8 +158,9 @@ stop_screenrecording() {
       -t 10000 --image "${preview:-$filename}" \
       --exec xdg-open "$filename"
 
-    # dunst loads the thumbnail when the toast appears and never re-reads it,
-    # so the preview only has to outlive that load — not the toast.
+    # The shell loads the thumbnail when the toast appears, so the preview only
+    # has to outlive that load -- not the toast. (In the bell's history the
+    # card then simply shows no image.)
     (
       sleep 2
       rm -f "$preview"

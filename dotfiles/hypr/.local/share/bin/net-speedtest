@@ -257,9 +257,9 @@ conn_name() {
 # whole run (2 x --seconds plus the fast.com round trip), which reads as a
 # dead element.
 notify_id=9731
-# -u critical is what makes the result stay put: dunstrc gives normal urgency
-# timeout = 5 and only urgency_critical timeout = 0, so a plain notification
-# was gone five seconds after a test you waited ten seconds for. The
+# -u critical is what makes the result stay put: the shell's toasts time out
+# after a few seconds and only critical ones wait to be dismissed, so a plain
+# notification was gone long before you looked at a test you waited for. The
 # "measuring" one stays normal, since it is replaced by the result anyway.
 notify_at() {
   notify-send -a net-speedtest -r "$notify_id" -i network-wireless \

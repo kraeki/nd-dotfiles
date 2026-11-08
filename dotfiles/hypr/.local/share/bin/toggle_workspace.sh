@@ -12,7 +12,7 @@ target_workspace=$1
 # *moved onto the one you were switching to* rather than hidden. It now lives in
 # hyprland.lua (binds:hide_special_on_workspace_change plus a workspace.active
 # sweep), which also covers the paths that never go through this script: the
-# 4-finger swipe, waybar clicks, and focus({workspace="previous"}) below.
+# 4-finger swipe, bar clicks, and focus({workspace="previous"}) below.
 
 if [ "$current_workspace" -eq "$target_workspace" ]; then
 	# If we are already on the target workspace, move to the previous one

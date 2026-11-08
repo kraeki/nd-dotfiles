@@ -50,7 +50,7 @@ Omarchy's spirit, but declarative all the way down.
 >
 > **Phase 2 is done** — `.github/workflows/build.yml` evaluates the full
 > system on every push and pre-builds the custom packages (now flake
-> outputs: `waybar`, `handy`, `wayscriber`, `herdr`, `tldraw-offline`) for
+> outputs: `handy`, `wayscriber`, `herdr`, `tldraw-offline`) for
 > Cachix; machines subscribe via `nd.cache.*`. One-time setup remains
 > yours: create the cache, set the repo's `CACHIX_CACHE` variable +
 > `CACHIX_AUTH_TOKEN` secret, and fill in `nd.cache.url`/`publicKey`

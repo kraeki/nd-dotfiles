@@ -2,7 +2,7 @@
 #
 # check  — evaluates the whole naptop system (what `nixos-rebuild` does before
 #          building), so a broken module or option fails here, not on the laptop.
-# cache  — builds the custom/compile-heavy packages (waybar override, Handy,
+# cache  — builds the custom/compile-heavy packages (Handy,
 #          wayscriber, herdr, tldraw-offline) and pushes them to Cachix, so
 #          `nixos-rebuild` on a machine downloads instead of compiling.
 #
@@ -55,7 +55,6 @@ jobs:
         # it comes back out of this very cache in seconds.
         run: |
           nix build -L \
-            .#waybar \
             .#herdr \
             .#tldraw-offline \
             .#wayscriber \

@@ -12,12 +12,10 @@ cat << "EOF"
 EOF
 }
 
+# The quickshell OSD shows the new level; sysfs backlight changes raise no
+# inotify event, so it has to be told. Silent if the shell is not running.
 function send_notification {
-    brightness=`brightnessctl info | grep -oP "(?<=\()\d+(?=%)" | cat`
-    brightinfo=$(brightnessctl info | awk -F "'" '/Device/ {print $2}')
-    angle="$(((($brightness + 2) / 5) * 5))"
-    ico="$HOME/.config/dunst/icons/vol/vol-${angle}.svg"
-    notify-send -a "t2" -r 91190 -t 800 -i "${ico}" "${brightness}" "${brightinfo}"
+    qs ipc call osd brightness >/dev/null 2>&1 || true
 }
 
 function get_brightness {

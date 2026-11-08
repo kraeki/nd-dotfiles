@@ -80,14 +80,13 @@ hl.on("hyprland.start", function()
     -- re-activated them on demand until 1.22 made that fail.
     hl.exec_cmd("sh -c 'dbus-update-activation-environment --systemd WAYLAND_DISPLAY XDG_CURRENT_DESKTOP; dbus-update-activation-environment --systemd --all; systemctl --user import-environment WAYLAND_DISPLAY XDG_CURRENT_DESKTOP; systemctl --user start nixos-fake-graphical-session.target'")
     hl.exec_cmd(srcPath .. "/polkitkdeauth.sh")                                          -- auth dialogue for GUI apps
-    hl.exec_cmd("waybar")
+    hl.exec_cmd("qs")                                                                    -- shell: bar, notifications, OSD (dotfiles/quickshell)
     hl.exec_cmd("vicinae server")
     hl.exec_cmd("obsidian")
     hl.exec_cmd("slack")
     hl.exec_cmd("blueman-applet")
     hl.exec_cmd("udiskie --no-automount --smart-tray")
     hl.exec_cmd("nm-applet --indicator")
-    hl.exec_cmd("dunst")
     hl.exec_cmd("wl-paste --type text --watch cliphist store")                           -- clipboard: text
     hl.exec_cmd("wl-paste --type image --watch cliphist store")                          -- clipboard: image
     hl.exec_cmd(srcPath .. "/wallpaper.sh")                                              -- wallpaper daemon
@@ -229,7 +228,9 @@ hl.bind(mainMod .. " + CTRL + Space", hl.dsp.window.float({ action = "toggle" })
 hl.bind(mainMod .. " + G",            hl.dsp.group.toggle(), { description = "Toggle window group" })
 hl.bind(mainMod .. " + F",            hl.dsp.window.fullscreen({ mode = "fullscreen" }), { description = "Toggle fullscreen" })
 hl.bind(mainMod .. " + Escape",       hl.dsp.exec_cmd("hyprlock"), { description = "Lock screen" })
-hl.bind("CTRL + ALT + W",             hl.dsp.exec_cmd("killall waybar || waybar"), { description = "Restart Waybar" })
+-- `qs kill` rather than pkill: the nixpkgs wrapper renames the process (see
+-- the .waybar-wrapped note in CLAUDE.md), and qs knows its own instances.
+hl.bind("CTRL + ALT + W",             hl.dsp.exec_cmd("sh -c 'qs kill; exec qs'"), { description = "Restart the shell (quickshell)" })
 
 -- Application shortcuts
 hl.bind(mainMod .. " + Return",         hl.dsp.exec_cmd(term), { description = "Open terminal" })
@@ -607,7 +608,7 @@ hl.bind(mainMod .. " + S",        hl.dsp.workspace.toggle_special(), { descripti
 --     scratchpad you just walked away from sits on the *other* monitor and stays
 --     on screen.
 --  2. This handler sweeps the remaining monitors, and covers the switch paths
---     that never touch the Super+1..0 binds: the 4-finger swipe, waybar clicks,
+--     that never touch the Super+1..0 binds: the 4-finger swipe, bar clicks,
 --     and focus({workspace="previous"}).
 --  3. The Super+1..0 binds call hideScratchpads() themselves, because switching
 --     to a workspace that is already displayed on the other monitor only moves
@@ -1012,11 +1013,13 @@ hl.window_rule({ name = "windowrule-44", match = { class = "^(com.github.unrud.V
 -- LAYER RULES
 ----------------------------------------------------------------------
 
-hl.layer_rule({ name = "layerrule-waybar", match = { namespace = "waybar" }, blur = true })   -- from themes/common.conf
+-- The quickshell surfaces (namespaces set in dotfiles/quickshell). The bar is
+-- drawn translucent, so blur behind it; the toasts and OSD are near-opaque
+-- cards on a transparent surface, and ignore_alpha keeps that clear part of
+-- the surface from being blurred too.
+hl.layer_rule({ name = "layerrule-nd-bar", match = { namespace = "^nd-bar$" }, blur = true, ignore_alpha = 0.3 })
+hl.layer_rule({ name = "layerrule-nd-cards", match = { namespace = "^nd-(notifications|osd)$" }, blur = true, ignore_alpha = 0.5 })
 hl.layer_rule({ name = "layerrule-1", match = { namespace = "rofi" },                      blur = true, ignore_alpha = 0 })
-hl.layer_rule({ name = "layerrule-2", match = { namespace = "notifications" },             blur = true, ignore_alpha = 0 })
-hl.layer_rule({ name = "layerrule-3", match = { namespace = "swaync-notification-window" }, blur = true, ignore_alpha = 0 })
-hl.layer_rule({ name = "layerrule-4", match = { namespace = "swaync-control-center" },     blur = true, ignore_alpha = 0 })
 hl.layer_rule({ name = "layerrule-5", match = { namespace = "logout_dialog" },             blur = true })
 
 ----------------------------------------------------------------------

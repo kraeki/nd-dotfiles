@@ -11,11 +11,6 @@
   };
 
   config = lib.mkIf config.nd.desktop.enable {
-    # Waybar pinned past 0.15.0 for Hyprland Lua-IPC dispatch — see
-    # overlays/waybar.nix (shared with the flake's `waybar` package output
-    # so CI can pre-build and cache the same derivation).
-    nixpkgs.overlays = [ (import ../../overlays/waybar.nix) ];
-
     programs.hyprland.enable = true;
 
     # Launch Hyprland under uwsm so systemd actually owns the session lifecycle.
@@ -113,11 +108,12 @@
 
       # Desktop environment
       hyprland
-      dunst
+      # The shell: bar, click panels, notification daemon and OSD in one
+      # process, configured in dotfiles/quickshell. Replaced waybar + dunst.
+      quickshell
       wpaperd
       hyprlock
       kitty
-      waybar
       rofi
       nautilus
       sushi             # Nautilus quick-preview (spacebar)
