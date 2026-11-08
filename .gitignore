@@ -22,3 +22,6 @@ dotfiles/syncthing/
 # otherwise offer to commit into the repo it was branched from. Manage them
 # with `git worktree list` / `git worktree remove`, not with .gitignore.
 .claude/worktrees/
+
+# Claude Code agent definitions: kept local to this machine on purpose.
+.claude/agents/
