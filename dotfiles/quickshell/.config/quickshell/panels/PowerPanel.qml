@@ -82,7 +82,7 @@ Popup {
     ColumnLayout {
       spacing: 0
       Label { text: "Stay awake" }
-      Label { dim: true; text: "Inhibit idle while the bar is up" }
+      Label { dim: true; text: "No dimming, lock or screen-off" }
     }
     // A layout can only grow as wide as its widest child allows; the spacer
     // is what actually pushes the button to the edge.

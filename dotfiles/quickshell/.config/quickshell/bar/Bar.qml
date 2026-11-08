@@ -25,9 +25,9 @@ PanelWindow {
   WlrLayershell.namespace: "nd-bar"
   WlrLayershell.layer: WlrLayer.Top
 
-  // Waybar's idle_inhibitor. A no-op until an idle daemon exists (none is
-  // configured, see the hyprlock note in modules/nixos/desktop.nix), kept so
-  // the toggle means the same thing when one does.
+  // "Stay awake": a Wayland idle inhibitor, which services/Idle.qml's
+  // monitors respect -- so dim, lock and screen-off all hold off while it is
+  // on (Idle also disables them outright). Same mechanism a playing video uses.
   IdleInhibitor {
     window: bar
     enabled: ShellState.stayAwake
